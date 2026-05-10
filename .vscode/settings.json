@@ -1,0 +1,9 @@
+{
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.next/**": true,
+    "**/node_modules/**": true
+  }
+}

@@ -18,6 +18,20 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Workspace root (avoid the “wrong directory” issue)
+
+Open **`flight-deal-hunter-ui`** itself as the editor workspace (the folder that contains this `README.md`, `package.json`, and `.git`). Do **not** open a parent folder like `Highmood` and expect tools to land in Skyflint — shells and some automation use the **workspace root**, not a sibling path.
+
+Quick check from a terminal:
+
+```bash
+cd /path/to/flight-deal-hunter-ui
+git rev-parse --show-toplevel   # must end with flight-deal-hunter-ui
+pnpm verify-root               # exits 1 if you are in the wrong repo/root
+```
+
+This repo ships **`.vscode/settings.json`** so integrated terminals default to **`${workspaceFolder}`** when you opened the correct folder.
+
 ### Production build (local)
 
 ```bash
