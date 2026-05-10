@@ -2,13 +2,14 @@ import type { IntakeValues } from "@/lib/intake-schema";
 
 const WORKFLOW_CHECKLIST = `Trip Hunt Progress:
 - [ ] 1. Intake: confirm trip parameters
-- [ ] 2. Baseline: aggregator sweep (Google Flights / Kayak / Skyscanner)
-- [ ] 3. Budget-carrier direct check
-- [ ] 4. Nearby-airport + flexible-date expansion
-- [ ] 5. Structural plays (separate tickets, hidden city, repositioning)
-- [ ] 6. Error-fare & deal-feed cross-check
-- [ ] 7. Total-cost normalization (bags, transit, time penalty)
-- [ ] 8. Ranked report + booking caveats`;
+- [ ] 2. Baseline: parallel aggregator sweep (≥4 distinct sources — see rules)
+- [ ] 3. Budget-carrier direct check (+ bag normalization)
+- [ ] 4. Nearby-airport matrix + systematic date-flex expansion
+- [ ] 5. Structural plays (separate tickets, repositioning, virtual interlining, etc.)
+- [ ] 6. Error-fare & deal-feed cross-check (≥2 feeds when applicable)
+- [ ] 7. Total-cost normalization (bags, transit, time penalty, OTA risk premium)
+- [ ] 7.5 Cross-validation gate (hard — do not emit Step 8 until satisfied or every gap is UNCHECKABLE with deep-links)
+- [ ] 8. Ranked report + price-anchor sanity + booking caveats`;
 
 /** Builds the Cursor agent prompt for the Flight Deal Hunter workflow + intake JSON. */
 export function buildFlightDealHunterPrompt(intake: IntakeValues): string {
@@ -22,14 +23,19 @@ ${WORKFLOW_CHECKLIST}
 ## Confirmed intake (do not re-ask — respect every field)
 ${serialized}
 
-## Execution rules (from the skill)
-- Follow Steps 1–8 in order. Always show your work when quoting fares: source, cabin, bag inclusion, and timestamp when possible.
-- Never invent fares. If live quotes are unavailable in this environment, say so clearly and provide deep-link search URLs using the patterns from the skill (Google Flights / Kayak / Skyscanner).
-- Normalize true total cost (bags + transit + time penalty + booking-channel risk) before ranking.
+## Execution rules (from the skill — strict)
+1. **Cheapest = lowest verified all-in total**, not OTA headline or one-aggregator sticker price. Rank only after **Step 7 normalization** on every finalist.
+2. **Before any "cheapest" claim:** run **≥4 distinct sources in parallel** (same dates/pax/cabin/bags intent). Default pool includes **Google Flights, Kayak, Skyscanner, ITA Matrix, Kiwi** — pick ≥4 relevant to the route; Asia-heavy adds Trip.com/Wego per skill.
+3. **Never invent fares, times, or carriers.** Every numeric quote must trace to a **named source + retrieval time (UTC) + deep-link** that reproduces the search. If you cannot fetch live data, write **UNCHECKABLE** for that item and still supply the **best-effort URL pattern** from the skill — do not fill gaps with plausible numbers.
+4. **Disagreement rule:** if two sources differ by **>8%** on comparable total, **pause ranking** until you reconcile (third check, fare-class match, bag inclusion alignment) or report both with **Low confidence** and explain.
+5. **Step 7.5 gate (blocking):** Do **not** open \`[[SKYFLINT_REPORT_BEGIN]]\` until each applicable bullet in Step 7.5 of the **flight-deal-hunter** skill is **done** or **UNCHECKABLE + deep-link**. Include a **### Cross-validation gate** subsection in the report summarizing PASS / PARTIAL / UNCHECKABLE per row.
+6. **LCC and self-transfer:** quote **carrier-direct** fees where aggregators flake; separate tickets need **explicit misconnect caveat** and buffer guidance.
+7. **Currency:** report in **${intake.currency}**; note POS quirks when comparing.
 
 ## Machine-readable progress markers (required)
-After you fully complete workflow step N (1–8), output exactly one line:
+After you fully complete checklist step **N** (1–8), output exactly one line:
 [[SKYFLINT_STEP_DONE:N]]
+Treat **step 7** as complete only after **both** total-cost normalization **and** Step **7.5** cross-validation (or documented UNCHECKABLE rows) — then emit **\`[[SKYFLINT_STEP_DONE:7]]\`** once.
 
 ## Final ranked report markers (required)
 Wrap your final ranked markdown report (Step 8 template exactly) between:
@@ -37,29 +43,44 @@ Wrap your final ranked markdown report (Step 8 template exactly) between:
 ...markdown here...
 [[SKYFLINT_REPORT_END]]
 
-The markdown inside must match this structure exactly:
+The markdown inside must follow this structure (do not skip sections; use "UNCHECKABLE — see link" where data is missing):
 
 ## Trip: {Origin} → {Destination}, {Dates}, {Pax}, {Cabin}
 
 ### TL;DR
-{One sentence with the single best recommendation and why.}
+{Best pick + why — must align with verified totals in Top 3.}
+
+### Cross-validation gate
+{Table or bullets: each Step 7.5 requirement → PASS | PARTIAL | UNCHECKABLE + deep-link}
 
 ### Top 3 options
 
 **1. {Carrier(s)} — {Total} {CCY}**
 - Routing: {A → B → C}, {Xh Ym total}, {N stops}
+- **Source:** {aggregator / carrier direct / ITA / etc.}
+- **Bags:** {what is included vs add-on fees for this intake}
 - Fare: {base} + bags {x} + transit {y} = {total}
-- Booking: {direct carrier | OTA name} — link
-- Tradeoffs: {red-eye? long layover? separate tickets?}
-- Confidence: {High / Medium / Low — last seen at this price: {timestamp}}
+- **Retrieval:** {UTC timestamp}
+- Booking: {label} — {deep-link reproducing search}
+- **Why ranked here:** {beats #2 by ___ after normalization; or caveat if uncertain}
+- Tradeoffs: {…}
+- Confidence: {High / Medium / Low}
 
-**2. ...**
-**3. ...**
+**2. …** **3. …**
+
+### Price-anchor sanity
+{Compare winner to typical band for route/dates; flag if anomalously cheap (error-fare risk) or expensive.}
+
+### What could change this
+- {1–3 concrete triggers, e.g. date shift, alternate airport}
+
+### Freshness
+{Cash fares ~6–12h validity — revalidate before pay.}
 
 ### Also considered
 - {Cheapest raw fare that lost on total cost — explain why}
 - {Best premium upgrade-for-the-money option}
-- {Best date-shift suggestion: "shift outbound by 2 days saves $X"}
+- {Best date-shift suggestion}
 
 ### Risks & caveats
 - {Separate-ticket exposure / LCC bag policy / passport-validity / visa-transit / Schengen-90/180}

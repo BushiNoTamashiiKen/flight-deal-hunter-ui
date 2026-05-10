@@ -20,8 +20,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0ea5e9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0284c7" },
+    { media: "(prefers-color-scheme: light)", color: "#d4f262" },
+    { media: "(prefers-color-scheme: dark)", color: "#2d3438" },
   ],
 };
 
@@ -71,7 +71,7 @@ export default function RootLayout({
       <body className={cn(inter.variable, "min-h-dvh font-sans antialiased")}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
-          <Toaster richColors closeButton position="top-center" />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

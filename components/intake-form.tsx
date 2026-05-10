@@ -69,13 +69,17 @@ function ChipList({
   onChange,
   placeholder,
   disabled,
+  selectionTone = "origin",
 }: {
   label: string;
   values: string[];
   onChange: (next: string[]) => void;
   placeholder: string;
   disabled?: boolean;
+  /** Origin chips stay neutral/blue actions; destinations use primary yellow consistently */
+  selectionTone?: "origin" | "destination";
 }) {
+  const isDestination = selectionTone === "destination";
   const [draft, setDraft] = React.useState("");
 
   const add = React.useCallback(() => {
@@ -87,18 +91,37 @@ function ChipList({
 
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <Label
+        className={
+          isDestination
+            ? cn("font-medium", !disabled && "text-primary")
+            : cn(!disabled && "font-medium text-accent-foreground")
+        }
+      >
+        {label}
+      </Label>
       <div className="flex flex-wrap gap-2">
         {values.map((v) => (
           <Badge
             key={v}
-            variant="secondary"
-            className="min-h-9 gap-1 py-1 pr-1 pl-2 font-normal"
+            variant={isDestination ? "default" : "outline"}
+            className={cn(
+              "min-h-9 gap-1 py-1 pr-1 pl-2 font-normal",
+              isDestination &&
+                "shadow-[inset_0_1px_0_rgb(255_255_255/0.38)] ring-1 ring-primary-foreground/12",
+              !isDestination &&
+                "border-accent/55 bg-accent/28 text-accent-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.45)] ring-1 ring-accent/25 dark:border-accent/55 dark:bg-accent/35 dark:ring-accent/35"
+            )}
           >
             {v}
             <button
               type="button"
-              className="-mr-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+              className={cn(
+                "-mr-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 active:scale-95",
+                isDestination
+                  ? "hover:bg-primary-foreground/14 focus-visible:ring-primary/45"
+                  : "hover:bg-accent/40 focus-visible:ring-accent/50 dark:hover:bg-accent/50"
+              )}
               onClick={() => onChange(values.filter((x) => x !== v))}
               aria-label={`Remove ${v}`}
               disabled={disabled}
@@ -124,9 +147,21 @@ function ChipList({
               add();
             }
           }}
-          className="min-h-11"
+          className={cn(
+            "min-h-11",
+            isDestination &&
+              "border-primary/45 shadow-[inset_0_1px_2px_rgb(223_255_0/0.1)] hover:border-primary/55 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/28 dark:border-primary/40 dark:bg-primary/10 dark:hover:border-primary/55 dark:focus-visible:ring-primary/35",
+            !isDestination &&
+              "border-accent/52 shadow-[inset_0_1px_2px_rgb(160_204_255/0.14)] hover:border-accent/68 focus-visible:border-accent focus-visible:ring-[3px] focus-visible:ring-accent/32 dark:border-accent/50 dark:bg-accent/15 dark:focus-visible:ring-accent/38"
+          )}
         />
-        <Button type="button" variant="outline" className="min-h-11 shrink-0 sm:min-h-8" onClick={add} disabled={disabled}>
+        <Button
+          type="button"
+          variant={isDestination ? "default" : "secondary"}
+          className="min-h-11 shrink-0 sm:min-h-8"
+          onClick={add}
+          disabled={disabled}
+        >
           Add
         </Button>
       </div>
@@ -151,7 +186,7 @@ function Stepper({
     <div className="flex items-center gap-3">
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         className="size-9 shrink-0 rounded-full active:scale-95"
         disabled={disabled || value <= min}
         onClick={() => onChange(Math.max(min, value - 1))}
@@ -162,7 +197,7 @@ function Stepper({
       <span className="min-w-[2ch] text-center font-medium text-lg tabular-nums">{value}</span>
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         className="size-9 shrink-0 rounded-full active:scale-95"
         disabled={disabled || value >= max}
         onClick={() => onChange(Math.min(max, value + 1))}
@@ -179,20 +214,31 @@ function PillCheckbox({
   onCheckedChange,
   label,
   disabled,
+  selectionTone = "default",
 }: {
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
   label: string;
   disabled?: boolean;
+  /** Matches destination yellow lane when unchecked */
+  selectionTone?: "default" | "destination";
 }) {
+  const destUnchecked =
+    "border-primary/40 bg-card hover:bg-primary/14 hover:border-primary/55 focus-visible:bg-primary/12 focus-within:ring-2 focus-within:ring-primary/35";
+  const defaultUnchecked =
+    "border-accent/45 bg-card hover:bg-accent/25 hover:border-accent/55 focus-visible:bg-accent/20";
+
   return (
     <label
       className={cn(
-        "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring",
+        "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors duration-300 ease-spring focus-within:ring-2",
+        selectionTone === "destination" ? "focus-within:ring-primary/35" : "focus-within:ring-ring",
         disabled && "pointer-events-none opacity-50",
         checked
-          ? "border-primary bg-primary/10 text-foreground"
-          : "border-border bg-background hover:bg-muted/60 focus-visible:bg-muted/60"
+          ? "border-primary/50 bg-primary/20 text-foreground shadow-dashboard"
+          : selectionTone === "destination"
+            ? destUnchecked
+            : defaultUnchecked
       )}
     >
       <Checkbox
@@ -221,7 +267,7 @@ function DatePickerField({
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
   const triggerClass = cn(
-    buttonVariants({ variant: "outline" }),
+    buttonVariants({ variant: "secondary" }),
     "min-h-11 w-full justify-start font-normal"
   );
 
@@ -315,16 +361,20 @@ export function IntakeForm({
     <FormProvider {...form}>
       <form
         id="skyflint-intake-form"
-        className="mx-auto flex max-w-3xl flex-col gap-8 pb-28 sm:pb-16"
+        className="mx-auto flex max-w-3xl flex-col gap-11 pb-32 sm:gap-14 sm:pb-24"
         onSubmit={form.handleSubmit((values) => onSubmit(values as IntakeValues))}
       >
-        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-8 border-0 p-0">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <Plane className="size-7 text-sky-500" aria-hidden />
-            <div>
-              <h2 className="font-semibold text-2xl tracking-tight">New search</h2>
-              <p className="text-muted-foreground text-sm">
+        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-11 border-0 p-0 sm:gap-14">
+        <div className="flex flex-col gap-4 sm:gap-5">
+          <div className="flex items-center gap-5 sm:gap-6">
+            <span className="icon-chip size-[3.25rem] sm:size-14 [&_svg]:size-7 sm:[&_svg]:size-8">
+              <Plane aria-hidden />
+            </span>
+            <div className="space-y-2">
+              <h2 className="font-semibold text-2xl tracking-tight text-foreground sm:text-3xl">
+                New search
+              </h2>
+              <p className="max-w-xl text-muted-foreground text-sm leading-relaxed sm:text-base">
                 Mirrors the Flight Deal Hunter Step 1 intake template — confirm every field before
                 hunting.
               </p>
@@ -334,13 +384,15 @@ export function IntakeForm({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <MapPin className="size-5 text-sky-500" />
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <span className="icon-chip">
+                <MapPin className="size-5" aria-hidden />
+              </span>
               Route
             </CardTitle>
             <CardDescription>Origin(s) within ~200km and destination targets.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-7 sm:space-y-8">
             <Controller
               control={form.control}
               name="origins"
@@ -351,6 +403,7 @@ export function IntakeForm({
                   values={field.value}
                   onChange={field.onChange}
                   disabled={busy}
+                  selectionTone="origin"
                 />
               )}
             />
@@ -364,6 +417,7 @@ export function IntakeForm({
                     checked={field.value}
                     onCheckedChange={field.onChange}
                     disabled={busy}
+                    selectionTone="destination"
                   />
                 )}
               />
@@ -376,6 +430,7 @@ export function IntakeForm({
                     checked={field.value}
                     onCheckedChange={field.onChange}
                     disabled={busy}
+                    selectionTone="destination"
                   />
                 )}
               />
@@ -390,6 +445,7 @@ export function IntakeForm({
                   values={field.value}
                   onChange={field.onChange}
                   disabled={(discoveryLocked && field.value.length === 0) || busy}
+                  selectionTone="destination"
                 />
               )}
             />
@@ -404,13 +460,15 @@ export function IntakeForm({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CalendarIcon className="size-5 text-sky-500" />
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <span className="icon-chip">
+                <CalendarIcon className="size-5" aria-hidden />
+              </span>
               Dates
             </CardTitle>
             <CardDescription>Windows match your selected mode.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-7 sm:space-y-8">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Date mode</Label>
@@ -593,8 +651,10 @@ export function IntakeForm({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Users className="size-5 text-sky-500" />
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <span className="icon-chip">
+                <Users className="size-5" aria-hidden />
+              </span>
               Travelers & cabin
             </CardTitle>
           </CardHeader>
@@ -658,7 +718,7 @@ export function IntakeForm({
                       <Button
                         key={v}
                         type="button"
-                        variant={field.value === v ? "default" : "outline"}
+                        variant={field.value === v ? "default" : "secondary"}
                         size="sm"
                         className="shrink-0 rounded-full"
                         disabled={busy}
@@ -676,12 +736,14 @@ export function IntakeForm({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Briefcase className="size-5 text-sky-500" />
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <span className="icon-chip">
+                <Briefcase className="size-5" aria-hidden />
+              </span>
               Bags
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6 sm:space-y-7">
             <Controller
               control={form.control}
               name="bagPolicy"
@@ -691,7 +753,7 @@ export function IntakeForm({
                   <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      variant={field.value === "personal" ? "default" : "outline"}
+                      variant={field.value === "personal" ? "default" : "secondary"}
                       size="sm"
                       className="rounded-full"
                       disabled={busy}
@@ -701,7 +763,7 @@ export function IntakeForm({
                     </Button>
                     <Button
                       type="button"
-                      variant={field.value === "carryon" ? "default" : "outline"}
+                      variant={field.value === "carryon" ? "default" : "secondary"}
                       size="sm"
                       className="rounded-full"
                       disabled={busy}
@@ -711,7 +773,7 @@ export function IntakeForm({
                     </Button>
                     <Button
                       type="button"
-                      variant={field.value === "checked" ? "default" : "outline"}
+                      variant={field.value === "checked" ? "default" : "secondary"}
                       size="sm"
                       className="rounded-full"
                       disabled={busy}
@@ -749,7 +811,7 @@ export function IntakeForm({
             <CardTitle className="text-lg">Constraints</CardTitle>
             <CardDescription>Hard filters that eliminate bad fits.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6 sm:space-y-7">
             <div className="flex flex-wrap gap-2">
               <Controller
                 control={form.control}
@@ -837,8 +899,10 @@ export function IntakeForm({
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="size-5 text-sky-500" />
+            <CardTitle className="flex items-center gap-3 text-lg">
+              <span className="icon-chip">
+                <Sparkles className="size-5" aria-hidden />
+              </span>
               Preferences
             </CardTitle>
           </CardHeader>
@@ -888,7 +952,7 @@ export function IntakeForm({
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="budget">Budget ceiling</Label>
+              <Label htmlFor="budget">How much are you willing to spend maximum?</Label>
               <Controller
                 control={form.control}
                 name="budgetCeiling"
@@ -929,9 +993,9 @@ export function IntakeForm({
                       id="bookingCountry"
                       disabled={busy}
                       className={cn(
-                        "flex h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base shadow-xs outline-none transition-colors",
-                        "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                        "disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
+                        "flex h-11 w-full rounded-lg border border-input bg-card/45 px-3 text-base shadow-[inset_0_1px_1.5px_rgb(160_204_255/0.07)] shadow-xs outline-none transition-[color,box-shadow,border-color] duration-300 ease-spring",
+                        "hover:border-accent/35 focus-visible:border-accent/55 focus-visible:ring-[3px] focus-visible:ring-accent/22",
+                        "disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/35 dark:shadow-[inset_0_1px_2px_rgb(80_130_200/0.12)] dark:hover:border-accent/45 dark:focus-visible:ring-accent/28"
                       )}
                       value={field.value}
                       onChange={(e) => field.onChange(e.target.value)}
@@ -968,13 +1032,13 @@ export function IntakeForm({
           </p>
         ) : null}
 
-        <Separator />
+        <Separator className="my-3 h-px rounded-full bg-accent/25 dark:bg-accent/30" />
         </fieldset>
 
         <Button
           type="submit"
           size="lg"
-          className="hidden h-12 min-h-12 w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 text-primary-foreground shadow-sm focus-visible:ring-2 focus-visible:ring-ring sm:flex sm:h-11 sm:min-h-11 sm:w-auto hover:from-sky-600 hover:to-sky-700"
+          className="hidden h-12 min-h-12 w-full rounded-full bg-primary text-primary-foreground shadow-dashboard-lg hover:bg-primary/95 focus-visible:ring-2 focus-visible:ring-ring sm:flex sm:h-11 sm:min-h-11 sm:w-auto"
           disabled={!form.formState.isValid || busy}
         >
           Start hunt
@@ -985,7 +1049,7 @@ export function IntakeForm({
         type="submit"
         size="lg"
         form="skyflint-intake-form"
-        className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 h-12 min-h-12 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 text-primary-foreground shadow-[0_-12px_40px_rgba(0,0,0,0.12)] focus-visible:ring-2 focus-visible:ring-ring sm:hidden hover:from-sky-600 hover:to-sky-700"
+        className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 h-12 min-h-12 rounded-full bg-primary text-primary-foreground shadow-dashboard-lg focus-visible:ring-2 focus-visible:ring-ring sm:hidden hover:bg-primary/95"
         disabled={!form.formState.isValid || busy}
       >
         {busy ? "Hunting…" : "Start hunt"}

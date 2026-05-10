@@ -6,10 +6,15 @@ export const DEMO_RANKED_REPORT = `## Trip: CPT → Lisbon (LIS), October (±3 d
 ### TL;DR
 **Best overall pick:** TAP Air Portugal via Amsterdam on a single ticket — competitive true total once bags and sensible ground transit are included, vs a cheaper-looking split-ticket combo that adds misconnect risk.
 
+### Cross-validation gate
+- **Demo illustration only** — canned numbers for UI testing, not live fares. In **live** hunts, each row should be PASS/PARTIAL/UNCHECKABLE per the flight-deal-hunter skill Step 7.5.
+
 ### Top 3 options
 
 **1. TAP Air Portugal — 842 EUR**
 - Routing: CPT → AMS → LIS, 22h 10m total, 1 stop
+- **Source:** illustrative blend (Google Flights + carrier-style quote)
+- **Bags:** economy carry-on bundle as per intake; checked not included
 - Fare: 612 + bags 140 + transit 90 = 842
 - Booking: Google Flights → TAP — https://www.google.com/travel/flights?q=Flights+from+CPT+to+LIS+on+2026-10-14
 - Tradeoffs: Overnight-ish connection attitude (long AMS layover); not the shortest elapsed time
@@ -17,6 +22,8 @@ export const DEMO_RANKED_REPORT = `## Trip: CPT → Lisbon (LIS), October (±3 d
 
 **2. Air France / KLM — 910 EUR**
 - Routing: CPT → CDG → LIS, 19h 40m total, 1 stop
+- **Source:** illustrative (Kayak-style round-trip)
+- **Bags:** carry-on bundle; checked extra if selected
 - Fare: 705 + bags 120 + transit 85 = 910
 - Booking: Kayak — https://www.kayak.com/flights/CPT-LIS/2026-10-14/2026-10-21
 - Tradeoffs: Higher headline fare than TAP; strong protection as single ticket
@@ -24,10 +31,22 @@ export const DEMO_RANKED_REPORT = `## Trip: CPT → Lisbon (LIS), October (±3 d
 
 **3. Split itinerary (long-haul + Ryanair) — 798 EUR**
 - Routing: CPT → LON-area → STN, then FR STN → LIS (self-transfer), 26h 05m total, 2 tickets
+- **Source:** illustrative (Kiwi / self-transfer pattern)
+- **Bags:** summed per-ticket LCC rules
 - Fare: 540 + bags 188 + transit 70 = 798
 - Booking: Kiwi (self-transfer) — https://www.kiwi.com/
 - Tradeoffs: Separate tickets; luggage recheck; misconnect exposure
 - Confidence: Low — last seen at this price: 2026-05-09 12:05 UTC
+
+### Price-anchor sanity
+Illustration: totals sit in a plausible mid-2026 Europe–Africa bucket — **revalidate on live sources** before booking; demo data is not authoritative.
+
+### What could change this
+- ±2 day outbound shift inside flex window often reprices TAP/AF buckets.
+- If willing to self-transfer with ≥4h buffer, split itineraries can reshuffle rankings.
+
+### Freshness
+Demo copy — cash fares normally valid **hours**, not days; always refresh before payment.
 
 ### Also considered
 - Cheapest raw fare: €482 from a mystery OTA on Skyscanner — lost after verified bag fees, seat bundles, and ~5% OTA friction premium in normalization.

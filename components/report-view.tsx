@@ -30,11 +30,11 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
       .filter(Boolean) ?? [];
 
   return (
-    <Card className="overflow-hidden border-border/80 shadow-sm transition-shadow hover:shadow-md focus-within:shadow-md">
+    <Card className="overflow-hidden border-accent/30 shadow-dashboard transition-shadow duration-300 ease-spring hover:shadow-dashboard-lg focus-within:shadow-dashboard-lg dark:border-accent/35">
       <CardHeader className="flex flex-col gap-4 space-y-0 pb-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div className="order-2 flex flex-wrap items-center gap-2 sm:order-1">
-            <Badge className="rounded-full bg-amber-500 text-amber-950 hover:bg-amber-500">
+            <Badge className="rounded-full bg-primary font-semibold text-primary-foreground hover:bg-primary">
               #{opt.rank}
             </Badge>
             <Badge variant="outline" className="max-w-full whitespace-normal font-normal">
@@ -42,7 +42,7 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
             </Badge>
           </div>
           <div className="order-1 text-left sm:order-2 sm:text-right">
-            <p className="font-semibold text-3xl tabular-nums tracking-tight text-sky-600 sm:text-2xl dark:text-sky-400">
+            <p className="font-semibold text-3xl tracking-tight tabular-nums text-foreground sm:text-2xl">
               {opt.totalDisplay || opt.fareTotal}{" "}
               {opt.fareCurrency ? (
                 <span className="font-medium text-xl sm:text-lg">{opt.fareCurrency}</span>
@@ -64,7 +64,7 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
         {(opt.fareBase !== undefined ||
           opt.fareBags !== undefined ||
           opt.fareTransit !== undefined) && (
-          <div className="rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-sm">
+          <div className="rounded-xl border border-dashed border-accent/35 bg-muted/35 px-3 py-2 text-sm dark:border-accent/40">
             <span className="text-muted-foreground">Fare breakdown: </span>
             <span className="tabular-nums">
               base {opt.fareBase ?? "—"} + bags {opt.fareBags ?? "—"} + transit{" "}
@@ -99,7 +99,7 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
                 variant: "default",
                 size: "default",
               }),
-              "w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 font-semibold shadow-sm hover:from-sky-600 hover:to-sky-700 sm:w-auto"
+              "w-full rounded-full bg-primary font-semibold text-primary-foreground shadow-dashboard hover:bg-primary/95 sm:w-auto"
             )}
           >
             Book on {opt.bookingLabel ?? "source"}
@@ -136,19 +136,15 @@ export function ReportView({
     : [{ text: "No checklist parsed — refer to raw markdown.", done: false }];
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-28 sm:pb-20">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="font-semibold text-2xl tracking-tight">Results</h2>
-          <p className="text-muted-foreground text-sm">
+    <div className="mx-auto flex max-w-3xl flex-col gap-11 pb-32 sm:gap-14 sm:pb-28">
+      <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+        <div className="space-y-3">
+          <h2 className="font-semibold text-2xl tracking-tight sm:text-3xl">Results</h2>
+          <p className="max-w-xl text-muted-foreground text-sm leading-relaxed sm:text-base">
             Structured view of the ranked report template from Step 8.
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="hidden rounded-full sm:inline-flex"
-          onClick={onRerun}
-        >
+        <Button variant="secondary" className="hidden rounded-full px-5 shadow-dashboard sm:inline-flex" onClick={onRerun}>
           Re-run with tweaks
           <ArrowRight className="ml-2 size-4" />
         </Button>
@@ -160,13 +156,13 @@ export function ReportView({
 
       <Card
         className={cn(
-          "relative overflow-hidden border-sky-500/35 bg-gradient-to-br from-sky-500/15 via-background to-background shadow-sm",
-          "dark:from-sky-500/25"
+          "relative overflow-hidden border-border/50 bg-accent shadow-dashboard",
+          "dark:border-white/10"
         )}
       >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.14),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgb(219_234_254/0.65),transparent_55%)] dark:bg-[radial-gradient(circle_at_100%_0%,rgb(30_58_138/0.25),transparent_55%)]" />
         <CardHeader className="relative space-y-2">
-          <div className="flex items-center gap-2 font-medium text-sky-800 text-sm dark:text-sky-200">
+          <div className="flex items-center gap-2 font-medium text-accent-foreground text-sm">
             <Sparkles className="size-4" />
             TL;DR
           </div>
@@ -179,8 +175,8 @@ export function ReportView({
         </CardHeader>
       </Card>
 
-      <section className="space-y-4">
-        <h3 className="font-semibold text-lg tracking-tight">Top 3 options</h3>
+      <section className="space-y-6 sm:space-y-8">
+        <h3 className="font-semibold text-xl tracking-tight sm:text-2xl">Top 3 options</h3>
         <div className="grid gap-4">
           {parsed.options.length === 0 ? (
             <Card>
@@ -194,7 +190,10 @@ export function ReportView({
         </div>
       </section>
 
-      <Accordion defaultValue={["also"]} className="rounded-xl border bg-card px-2 shadow-sm">
+      <Accordion
+        defaultValue={["also"]}
+        className="rounded-[2rem] border border-accent/35 bg-card px-3 shadow-dashboard sm:rounded-[2.25rem] sm:px-4"
+      >
         <AccordionItem value="also">
           <AccordionTrigger className="text-base hover:no-underline">
             Also considered
@@ -266,9 +265,9 @@ export function ReportView({
 
       <Button
         type="button"
-        variant="default"
+        variant="secondary"
         size="lg"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[45] min-h-12 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 shadow-lg focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[45] min-h-12 rounded-full px-5 shadow-dashboard-lg backdrop-blur-md sm:hidden"
         onClick={onRerun}
       >
         Re-run

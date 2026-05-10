@@ -14,7 +14,7 @@ export function ModeToggle() {
 
   if (!mounted) {
     return (
-      <Button variant="outline" size="icon-sm" className="size-8" aria-hidden disabled />
+      <Button variant="secondary" size="icon-sm" className="size-8" aria-hidden disabled />
     );
   }
 
@@ -23,7 +23,7 @@ export function ModeToggle() {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="icon-sm"
       className="size-8"
       aria-label="Toggle theme"

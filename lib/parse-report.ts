@@ -40,6 +40,18 @@ function extractBetween(body: string, start: string, end?: string): string | und
 }
 
 /** Pull airports from "Routing: CPT → AMS → LIS, ..." */
+/** Top-3 section may be followed by Price-anchor / Freshness blocks before "Also considered". */
+function extractTopOptionsSection(raw: string): string | undefined {
+  const startMarker = "### Top 3 options";
+  const i = raw.indexOf(startMarker);
+  if (i === -1) return undefined;
+  const after = raw.slice(i + startMarker.length);
+  const endRe =
+    /\n### (?:Also considered|Price-anchor|What could change|Freshness|Risks\b|Risks & caveats|Booking checklist)\b/;
+  const m = endRe.exec(after);
+  return m ? after.slice(0, m.index).trim() : after.trim();
+}
+
 export function parseAirportsFromRouting(line: string): string[] {
   const routingPart = line.replace(/^-\s*Routing:\s*/i, "").split(",")[0]?.trim() ?? "";
   if (!routingPart.includes("→")) return [];
@@ -96,6 +108,7 @@ export function parseRankedReport(markdown: string): ParsedReport {
     raw.match(/### TL;DR\s*\n+([\s\S]*?)(?=\n)/)?.[1]?.trim();
 
   const topSection =
+    extractTopOptionsSection(raw) ??
     extractBetween(raw, "### Top 3 options", "### Also considered") ??
     extractBetween(raw, "### Top 3 options", "### Risks");
 

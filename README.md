@@ -69,6 +69,8 @@ Replace `<user>/<repo>` in the URL above with your GitHub owner and repository n
 
 **Manual:** In the [Netlify](https://app.netlify.com) dashboard, **Add new site → Import an existing project**, connect the Git repo, and under **Site configuration → Environment variables** add **`CURSOR_API_KEY`** and **`CURSOR_CLOUD_REPO_URL`** (HTTPS Git URL Cursor Cloud may clone — often this same repo). For **demo-only** production, omit the API key entirely. Netlify auto-detects pnpm; `netlify.toml` sets Node 20, pnpm 9, and `@netlify/plugin-nextjs`.
 
+**CLI / native modules:** `@cursor/sdk` depends on **`sqlite3`** (platform-specific native binaries). Running **`netlify deploy --build`** from **macOS or Windows** can package the wrong binary for Netlify’s **Linux** functions, which surfaces as **`invalid ELF header`** at runtime. Prefer **Git-connected production builds** on Netlify’s builders, or build in a **Linux** environment (e.g. CI, Docker) before upload. Demo mode (no API key) avoids loading the SDK path.
+
 **Timeouts:** On Netlify Pro, synchronous functions are limited (config sets **26s** for `api/hunt` in `netlify.toml`). **Demo mode** finishes within that budget. **Live** Cursor agent runs can run longer — use a higher tier / different architecture, or refactor the hunt endpoint to **enqueue + poll** (Background Functions on Netlify do not preserve streaming). For unrestricted duration with streaming, use **Docker** or a **VPS** below.
 
 **Commit SHA:** Netlify sets **`COMMIT_REF`** on builds. `/api/health` returns it as `commit` (along with `VERCEL_GIT_COMMIT_SHA` as a fallback for other hosts).
