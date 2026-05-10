@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
 import "./globals.css";
@@ -11,10 +11,45 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0ea5e9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0284c7" },
+  ],
+};
+
 export const metadata: Metadata = {
-  title: "Skyflint — Flight deal hunter",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Skyflint — Hunt cheap flights",
+    template: "%s — Skyflint",
+  },
   description:
-    "Skyflint runs the Flight Deal Hunter workflow to find genuinely cheap flights.",
+    "Deep multi-source flight deal search powered by an autonomous agent.",
+  applicationName: "Skyflint",
+  authors: [{ name: "Skyflint contributors" }],
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    siteName: "Skyflint",
+    title: "Skyflint — Hunt cheap flights",
+    description:
+      "Deep multi-source flight deal search powered by an autonomous agent.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Skyflint — Hunt cheap flights",
+    description:
+      "Deep multi-source flight deal search powered by an autonomous agent.",
+  },
 };
 
 export default function RootLayout({

@@ -1,0 +1,33 @@
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "9"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# The hunt route streams an autonomous agent run that may exceed the default
+# 10s synchronous function timeout. Background Functions allow up to 15 minutes
+# but break streaming, so we keep this on a standard function and bump the
+# timeout via the dashboard / netlify.toml functions block instead.
+[functions]
+  node_bundler = "esbuild"
+
+[functions."api/hunt"]
+  # Netlify Pro+ allows up to 26s. For longer runs, the user must enable
+  # Background Functions and the UI must poll instead of stream.
+  timeout = 26
+
+# Redundant with next.config.ts headers — covers static assets at the edge.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
