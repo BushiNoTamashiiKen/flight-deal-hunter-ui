@@ -74,7 +74,22 @@ export function SkyflintApp() {
       }
 
       if (!res.ok) {
-        toast.error(`Hunt failed to start (${res.status}).`);
+        let msg = `Hunt failed to start (${res.status}).`;
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("application/json")) {
+          try {
+            const payload = (await res.json()) as { error?: string };
+            if (typeof payload?.error === "string" && payload.error.length > 0) {
+              msg =
+                payload.error.length > 320
+                  ? `${payload.error.slice(0, 317)}…`
+                  : payload.error;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        toast.error(msg);
         setTab("intake");
         return;
       }

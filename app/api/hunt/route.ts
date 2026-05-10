@@ -7,6 +7,12 @@
  * hosting then requires enqueue + poll/Background Functions (non-streaming), or
  * self-host (Docker/VPS) without that ceiling.
  */
+import {
+  cloudRepoEnvDocs,
+  isManagedServerlessHost,
+  trimmedCloudRepoUrl,
+  trimmedCursorApiKey,
+} from "@/lib/cursor-agent-options";
 import { demoHuntStream } from "@/lib/demo-run";
 import { buildFlightDealHunterPrompt } from "@/lib/hunt-prompt";
 import { intakeSchema } from "@/lib/intake-schema";
@@ -30,6 +36,46 @@ const NO_STORE = { "Cache-Control": "no-store" } as const;
 
 function jsonResponse(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: NO_STORE });
+}
+
+/** Avoid double-close rejects from ReadableStream controllers. */
+function safeClose(controller: ReadableStreamDefaultController<Uint8Array>): void {
+  try {
+    controller.close();
+  } catch {
+    // already closed
+  }
+}
+
+function buildSkyflintAgentCreateInput(apiKey: string) {
+  const name = "Skyflint flight-deal-hunter";
+  const model = { id: "composer-2" as const };
+
+  if (isManagedServerlessHost()) {
+    const repoUrl = trimmedCloudRepoUrl();
+    if (!repoUrl) {
+      throw new Error(`${cloudRepoEnvDocs} must be set for live hunts on Netlify/Vercel/Lambda`);
+    }
+    return {
+      apiKey,
+      name,
+      model,
+      cloud: {
+        repos: [{ url: repoUrl }],
+        autoCreatePR: false as const,
+        skipReviewerRequest: true as const,
+      },
+    };
+  }
+
+  return {
+    apiKey,
+    name,
+    model,
+    local: {
+      cwd: process.cwd(),
+    },
+  };
 }
 
 function clientIp(request: Request): string {
@@ -91,33 +137,59 @@ export async function POST(request: Request): Promise<Response> {
   const intake = parsed.data;
   logger.info("hunt start", summarizeIntakeForLog(intake));
 
+  const apiKeyForLive = trimmedCursorApiKey();
+
+  /** Local Cursor agents cannot run inside managed serverless hosts — use a cloud repo. */
+  if (apiKeyForLive && isManagedServerlessHost() && !trimmedCloudRepoUrl()) {
+    return jsonResponse(
+      {
+        error:
+          `Live hunts on Netlify/Vercel need a Cursor cloud agent. Set env ${cloudRepoEnvDocs} ` +
+          "to an HTTPS Git URL for a repository your API key can access (Skyflint or a fork), then redeploy. " +
+          "Without CURSOR_API_KEY the app stays in demo mode.",
+        code: "CURSOR_CLOUD_REPO_URL_REQUIRED",
+      },
+      503
+    );
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
       const push = (line: string) => controller.enqueue(encoder.encode(line));
 
-      if (!process.env.CURSOR_API_KEY) {
-        try {
-          for await (const chunk of demoHuntStream()) {
-            push(chunk);
-          }
-        } catch (err) {
-          logger.error("demo stream failed", {
-            message: err instanceof Error ? err.message : String(err),
-          });
-          push(
-            encodeEvent({
-              type: "error",
-              message: err instanceof Error ? err.message : "Demo stream failed.",
-            })
-          );
-        } finally {
-          controller.close();
-        }
-        return;
-      }
+      try {
+        const keyForStream = trimmedCursorApiKey();
 
-      await runLiveAgent(controller, intake);
+        if (!keyForStream) {
+          try {
+            for await (const chunk of demoHuntStream()) {
+              push(chunk);
+            }
+          } catch (err) {
+            logger.error("demo stream failed", {
+              message: err instanceof Error ? err.message : String(err),
+            });
+            push(
+              encodeEvent({
+                type: "error",
+                message: err instanceof Error ? err.message : "Demo stream failed.",
+              })
+            );
+          } finally {
+            safeClose(controller);
+          }
+          return;
+        }
+
+        await runLiveAgent(controller, intake, keyForStream);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : String(err ?? "Hunt failed to start.");
+        logger.error("hunt stream aborted", { message });
+        push(encodeEvent({ type: "error", message }));
+        safeClose(controller);
+      }
     },
   });
 
@@ -131,28 +203,33 @@ export async function POST(request: Request): Promise<Response> {
 
 async function runLiveAgent(
   controller: ReadableStreamDefaultController<Uint8Array>,
-  intake: IntakeValues
+  intake: IntakeValues,
+  apiKey: string
 ): Promise<void> {
-  const { Agent, CursorAgentError } = await import("@cursor/sdk");
-
   const encoder = new TextEncoder();
   const push = (line: string) => controller.enqueue(encoder.encode(line));
 
-  let agent: Awaited<ReturnType<typeof Agent.create>> | undefined;
+  let SdkAgent: typeof import("@cursor/sdk").Agent;
+  let SdkCursorAgentError: typeof import("@cursor/sdk").CursorAgentError;
+  try {
+    const sdk = await import("@cursor/sdk");
+    SdkAgent = sdk.Agent;
+    SdkCursorAgentError = sdk.CursorAgentError;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Could not load @cursor/sdk.";
+    logger.error("sdk import failed", { message: msg });
+    push(encodeEvent({ type: "error", message: msg }));
+    safeClose(controller);
+    return;
+  }
+
+  let agent: Awaited<ReturnType<(typeof SdkAgent)["create"]>> | undefined;
   try {
     try {
-      agent = await Agent.create({
-        apiKey: process.env.CURSOR_API_KEY,
-        model: { id: "composer-2" },
-        local: {
-          cwd: process.cwd(),
-          settingSources: [],
-        },
-        name: "Skyflint flight-deal-hunter",
-      });
+      agent = await SdkAgent.create(buildSkyflintAgentCreateInput(apiKey));
     } catch (err) {
       const msg =
-        err instanceof CursorAgentError
+        err instanceof SdkCursorAgentError
           ? `${err.message} (retryable=${String(err.isRetryable)})`
           : err instanceof Error
             ? err.message
@@ -168,7 +245,7 @@ async function runLiveAgent(
       run = await agent.send(prompt);
     } catch (err) {
       const msg =
-        err instanceof CursorAgentError ? err.message : "Send failed for Cursor agent run.";
+        err instanceof SdkCursorAgentError ? err.message : "Send failed for Cursor agent run.";
       logger.error("agent send failed", { message: msg });
       push(encodeEvent({ type: "error", message: msg }));
       return;
@@ -239,7 +316,7 @@ async function runLiveAgent(
     logger.info("hunt live run finished", { status: result.status });
   } catch (err) {
     const msg =
-      err instanceof CursorAgentError
+      err instanceof SdkCursorAgentError
         ? err.message
         : err instanceof Error
           ? err.message
@@ -250,6 +327,6 @@ async function runLiveAgent(
     if (agent) {
       await agent[Symbol.asyncDispose]();
     }
-    controller.close();
+    safeClose(controller);
   }
 }

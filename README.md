@@ -50,11 +50,14 @@ pnpm start
 
 Create `.env.local` (see `.env.example`).
 
-| Variable         | Required | Description                                                                 |
-| ---------------- | -------- | --------------------------------------------------------------------------- |
-| `CURSOR_API_KEY` | No\*     | Cursor API key (`cursor_…`). Enables live `@cursor/sdk` agent runs from `/api/hunt`. |
+| Variable                  | Required | Description                                                                 |
+| ------------------------- | -------- | --------------------------------------------------------------------------- |
+| `CURSOR_API_KEY`          | No\*     | Cursor API key (`cursor_…`). Enables live `@cursor/sdk` agent runs from `/api/hunt`. |
+| `CURSOR_CLOUD_REPO_URL`   | Sometimes† | **Netlify/Vercel/Lambda**: HTTPS clone URL (`https://…git`) for Cloud Agents — required alongside `CURSOR_API_KEY`. Local/desktop dev skips this (`local` agent). |
 
 \*If unset, the API runs **demo mode**: a canned CPT ⇄ Lisbon October replay that streams NDJSON like a real run (workflow steps + ranked Markdown).
+
+† Omit `CURSOR_API_KEY` entirely to ship demo-only builds; if the key is set on Netlify without `CURSOR_CLOUD_REPO_URL`, `/api/hunt` returns **503** with guidance (avoiding opaque 500s from a local-agent crash).
 
 Get a key from [Cursor Cloud Agents / API](https://cursor.com/dashboard/cloud-agents) (user or team service account).
 
@@ -64,7 +67,7 @@ Get a key from [Cursor Cloud Agents / API](https://cursor.com/dashboard/cloud-ag
 
 Replace `<user>/<repo>` in the URL above with your GitHub owner and repository name.
 
-**Manual:** In the [Netlify](https://app.netlify.com) dashboard, **Add new site → Import an existing project**, connect the Git repo, and add **`CURSOR_API_KEY`** under **Site configuration → Environment variables**. Netlify auto-detects pnpm; `netlify.toml` sets Node 20, pnpm 9, and `@netlify/plugin-nextjs`.
+**Manual:** In the [Netlify](https://app.netlify.com) dashboard, **Add new site → Import an existing project**, connect the Git repo, and under **Site configuration → Environment variables** add **`CURSOR_API_KEY`** and **`CURSOR_CLOUD_REPO_URL`** (HTTPS Git URL Cursor Cloud may clone — often this same repo). For **demo-only** production, omit the API key entirely. Netlify auto-detects pnpm; `netlify.toml` sets Node 20, pnpm 9, and `@netlify/plugin-nextjs`.
 
 **Timeouts:** On Netlify Pro, synchronous functions are limited (config sets **26s** for `api/hunt` in `netlify.toml`). **Demo mode** finishes within that budget. **Live** Cursor agent runs can run longer — use a higher tier / different architecture, or refactor the hunt endpoint to **enqueue + poll** (Background Functions on Netlify do not preserve streaming). For unrestricted duration with streaming, use **Docker** or a **VPS** below.
 
@@ -113,6 +116,7 @@ server {
 | Variable                       | Default / notes                                                                       |
 | ------------------------------ | ------------------------------------------------------------------------------------- |
 | `CURSOR_API_KEY`               | Optional. Omit for demo mode.                                                         |
+| `CURSOR_CLOUD_REPO_URL`       | On **Netlify/Vercel/Lambda**, required with `CURSOR_API_KEY` — HTTPS Git URL for Cursor Cloud. |
 | `NEXT_PUBLIC_SITE_URL`         | Canonical URL for metadata, OG URLs, sitemap (no trailing slash).                     |
 | `SKYFLINT_DISABLE_RATELIMIT`   | Set to `1` to disable POST `/api/hunt` rate limiting (default: **10 req / 5 min** per IP). |
 | `COMMIT_REF`                   | Injected on Netlify; powers `/api/health` `commit` field.                           |
@@ -123,10 +127,15 @@ server {
 `GET /api/health` returns JSON:
 
 ```json
-{ "status": "ok", "mode": "live"|"demo", "commit": "<sha or local>" }
+{
+  "status": "ok",
+  "mode": "live" | "demo",
+  "huntReady": true,
+  "commit": "<sha or local>"
+}
 ```
 
-`mode` is `live` when `CURSOR_API_KEY` is set. `commit` prefers `COMMIT_REF` (Netlify), then `VERCEL_GIT_COMMIT_SHA`, then `"local"`.
+`mode` is `live` when a non-empty **`CURSOR_API_KEY`** is set. **`huntReady`** is `false` only when running on managed serverless (**Netlify** / **Vercel** / **Lambda**) with a key present but **`CURSOR_CLOUD_REPO_URL`** missing — `POST /api/hunt` will return **503** until that repo URL is configured. **`commit`** prefers `COMMIT_REF` (Netlify), then `VERCEL_GIT_COMMIT_SHA`, then `"local"`.
 
 ## Rate limiting
 
@@ -146,7 +155,7 @@ The app sets (via `next.config.mjs`, mirrored in `netlify.toml` for static paths
 
 1. The client POSTs validated intake JSON to **`POST /api/hunt`** (`application/json`).
 2. The route streams **NDJSON** (`application/x-ndjson`): `log`, `step`, `report`, and optional `error` events.
-3. With `CURSOR_API_KEY` set, the handler dynamically imports `@cursor/sdk`, creates a local agent (`composer-2`), and sends a prompt built by `lib/hunt-prompt.ts` that embeds the 8-step checklist, serialized intake JSON, and markers `[[SKYFLINT_STEP_DONE:N]]` / `[[SKYFLINT_REPORT_BEGIN]]` / `[[SKYFLINT_REPORT_END]]`.
+3. With `CURSOR_API_KEY` set, the handler imports `@cursor/sdk`, creates **`composer-2`** on a **local** agent (desktop/docker) or a **cloud** agent on Netlify/Vercel (requires **`CURSOR_CLOUD_REPO_URL`**), then sends a prompt from `lib/hunt-prompt.ts` with markers `[[SKYFLINT_STEP_DONE:N]]` / `[[SKYFLINT_REPORT_BEGIN]]` / `[[SKYFLINT_REPORT_END]]`.
 4. Without a key, `lib/demo-run.ts` streams a CPT → Lisbon scenario aligned with the ranked-report template.
 
 ## Project layout (high level)
