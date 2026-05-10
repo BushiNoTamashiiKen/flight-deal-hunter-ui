@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm build"
+  command = "npx pnpm@9.15.9 install --frozen-lockfile && npx pnpm@9.15.9 run build"
   publish = ".next"
 
 [build.environment]
