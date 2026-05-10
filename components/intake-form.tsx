@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format, parseISO } from "date-fns";
+import dynamic from "next/dynamic";
 import {
   Briefcase,
   Calendar as CalendarIcon,
@@ -16,7 +17,6 @@ import { Controller, FormProvider, useForm } from "react-hook-form";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,16 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { BOOKING_COUNTRIES } from "@/lib/countries";
+import { useMediaQuery } from "@/lib/use-media-query";
 import {
   CABIN_VALUES,
   CURRENCIES,
@@ -41,6 +50,18 @@ import {
   type IntakeValues,
 } from "@/lib/intake-schema";
 import { cn } from "@/lib/utils";
+
+const LazyCalendar = dynamic(
+  () => import("@/components/ui/calendar").then((m) => m.Calendar),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[min(320px,50dvh)] items-center justify-center rounded-lg bg-muted text-muted-foreground text-sm">
+        Loading calendar…
+      </div>
+    ),
+  }
+);
 
 function ChipList({
   label,
@@ -72,17 +93,17 @@ function ChipList({
           <Badge
             key={v}
             variant="secondary"
-            className="gap-1 pr-1 font-normal"
+            className="min-h-9 gap-1 py-1 pr-1 pl-2 font-normal"
           >
             {v}
             <button
               type="button"
-              className="rounded-full p-0.5 hover:bg-muted"
+              className="-mr-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
               onClick={() => onChange(values.filter((x) => x !== v))}
               aria-label={`Remove ${v}`}
               disabled={disabled}
             >
-              <X className="size-3" />
+              <X className="size-4" aria-hidden />
             </button>
           </Badge>
         ))}
@@ -92,6 +113,10 @@ function ChipList({
           value={draft}
           placeholder={placeholder}
           disabled={disabled}
+          enterKeyHint="search"
+          inputMode="text"
+          autoComplete="off"
+          autoCapitalize="characters"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -99,8 +124,9 @@ function ChipList({
               add();
             }
           }}
+          className="min-h-11"
         />
-        <Button type="button" variant="outline" onClick={add} disabled={disabled}>
+        <Button type="button" variant="outline" className="min-h-11 shrink-0 sm:min-h-8" onClick={add} disabled={disabled}>
           Add
         </Button>
       </div>
@@ -126,19 +152,21 @@ function Stepper({
       <Button
         type="button"
         variant="outline"
-        size="icon-sm"
+        className="size-9 shrink-0 rounded-full active:scale-95"
         disabled={disabled || value <= min}
         onClick={() => onChange(Math.max(min, value - 1))}
+        aria-label="Decrease"
       >
         −
       </Button>
-      <span className="min-w-[2ch] text-center font-medium tabular-nums">{value}</span>
+      <span className="min-w-[2ch] text-center font-medium text-lg tabular-nums">{value}</span>
       <Button
         type="button"
         variant="outline"
-        size="icon-sm"
+        className="size-9 shrink-0 rounded-full active:scale-95"
         disabled={disabled || value >= max}
         onClick={() => onChange(Math.min(max, value + 1))}
+        aria-label="Increase"
       >
         +
       </Button>
@@ -150,22 +178,26 @@ function PillCheckbox({
   checked,
   onCheckedChange,
   label,
+  disabled,
 }: {
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+        "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring",
+        disabled && "pointer-events-none opacity-50",
         checked
           ? "border-primary bg-primary/10 text-foreground"
-          : "border-border bg-background hover:bg-muted/60"
+          : "border-border bg-background hover:bg-muted/60 focus-visible:bg-muted/60"
       )}
     >
       <Checkbox
         checked={checked}
+        disabled={disabled}
         onCheckedChange={(v) => onCheckedChange(Boolean(v))}
       />
       {label}
@@ -185,30 +217,69 @@ function DatePickerField({
   disabled?: boolean;
 }) {
   const date = value ? parseISO(value) : undefined;
+  const isMobile = useMediaQuery("(max-width: 639px)");
+  const [sheetOpen, setSheetOpen] = React.useState(false);
+
+  const triggerClass = cn(
+    buttonVariants({ variant: "outline" }),
+    "min-h-11 w-full justify-start font-normal"
+  );
+
+  const triggerInner = (
+    <>
+      <CalendarIcon className="mr-2 size-4 shrink-0 opacity-70" aria-hidden />
+      <span className="truncate">{date ? format(date, "PPP") : "Pick a date"}</span>
+    </>
+  );
+
+  const calendar = (
+    <LazyCalendar
+      mode="single"
+      selected={date}
+      onSelect={(d) => {
+        onChange(d ? format(d, "yyyy-MM-dd") : undefined);
+        if (isMobile) setSheetOpen(false);
+      }}
+      captionLayout="dropdown"
+      className="mx-auto w-fit max-w-[calc(100vw-2rem)]"
+    />
+  );
 
   return (
     <div className="flex flex-col gap-2">
       <Label>{label}</Label>
-      <Popover>
-        <PopoverTrigger
-          disabled={disabled}
-          className={cn(
-            buttonVariants({ variant: "outline" }),
-            "w-full justify-start font-normal"
-          )}
-        >
-          <CalendarIcon className="mr-2 size-4 opacity-70" />
-          {date ? format(date, "PPP") : "Pick a date"}
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : undefined)}
-            captionLayout="dropdown"
-          />
-        </PopoverContent>
-      </Popover>
+      {isMobile ? (
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger className={triggerClass} disabled={disabled}>
+            {triggerInner}
+          </SheetTrigger>
+          <SheetContent
+            side="bottom"
+            className="max-h-[min(92dvh,calc(100%+env(safe-area-inset-bottom)))] gap-0 overflow-hidden rounded-t-2xl p-0"
+          >
+            <SheetHeader className="border-border border-b p-4 text-left">
+              <SheetTitle>{label}</SheetTitle>
+            </SheetHeader>
+            <div className="max-h-[min(70dvh,520px)] overflow-y-auto overflow-x-auto p-4">
+              {calendar}
+            </div>
+            <SheetFooter className="border-border border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <Button type="button" className="min-h-11 w-full" onClick={() => setSheetOpen(false)}>
+                Done
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Popover>
+          <PopoverTrigger disabled={disabled} className={triggerClass}>
+            {triggerInner}
+          </PopoverTrigger>
+          <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="start">
+            {calendar}
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
@@ -216,9 +287,11 @@ function DatePickerField({
 export function IntakeForm({
   onSubmit,
   initialValues,
+  huntBusy,
 }: {
   onSubmit: (values: IntakeValues) => void | Promise<void>;
   initialValues?: Partial<IntakeValues>;
+  huntBusy?: boolean;
 }) {
   const form = useForm({
     resolver: zodResolver(intakeSchema),
@@ -235,13 +308,17 @@ export function IntakeForm({
   const maxTimeEnabled = form.watch("constraintMaxTotalTime");
 
   const discoveryLocked = anywhereIntl || anywhereEu;
+  const busy = Boolean(huntBusy);
+  const isSmallScreen = useMediaQuery("(max-width: 639px)");
 
   return (
     <FormProvider {...form}>
       <form
-        className="mx-auto flex max-w-3xl flex-col gap-8 pb-16"
+        id="skyflint-intake-form"
+        className="mx-auto flex max-w-3xl flex-col gap-8 pb-28 sm:pb-16"
         onSubmit={form.handleSubmit((values) => onSubmit(values as IntakeValues))}
       >
+        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-8 border-0 p-0">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Plane className="size-7 text-sky-500" aria-hidden />
@@ -273,6 +350,7 @@ export function IntakeForm({
                   placeholder="e.g. CPT, Cape Town"
                   values={field.value}
                   onChange={field.onChange}
+                  disabled={busy}
                 />
               )}
             />
@@ -285,6 +363,7 @@ export function IntakeForm({
                     label="Anywhere international"
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    disabled={busy}
                   />
                 )}
               />
@@ -296,6 +375,7 @@ export function IntakeForm({
                     label="Anywhere in Europe"
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    disabled={busy}
                   />
                 )}
               />
@@ -309,7 +389,7 @@ export function IntakeForm({
                   placeholder={discoveryLocked ? "Optional — discovery mode enabled" : "e.g. LIS, Lisbon"}
                   values={field.value}
                   onChange={field.onChange}
-                  disabled={discoveryLocked && field.value.length === 0}
+                  disabled={(discoveryLocked && field.value.length === 0) || busy}
                 />
               )}
             />
@@ -340,6 +420,7 @@ export function IntakeForm({
                   render={({ field }) => (
                     <Select
                       value={field.value}
+                      disabled={busy}
                       onValueChange={(v) => {
                         const m = dateModeEnum.safeParse(v);
                         if (m.success) field.onChange(m.data);
@@ -364,7 +445,7 @@ export function IntakeForm({
                   control={form.control}
                   name="tripType"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={busy}>
                       <SelectTrigger className="w-full min-w-0">
                         <SelectValue />
                       </SelectTrigger>
@@ -388,6 +469,7 @@ export function IntakeForm({
                       label="Outbound window"
                       value={field.value}
                       onChange={field.onChange}
+                      disabled={busy}
                     />
                   )}
                 />
@@ -400,6 +482,7 @@ export function IntakeForm({
                         label="Return window"
                         value={field.value}
                         onChange={field.onChange}
+                        disabled={busy}
                       />
                     )}
                   />
@@ -421,6 +504,7 @@ export function IntakeForm({
                       label="Center date for ± window"
                       value={field.value}
                       onChange={field.onChange}
+                      disabled={busy}
                     />
                   )}
                 />
@@ -432,6 +516,7 @@ export function IntakeForm({
                       name="flexibleDays"
                       render={({ field }) => (
                         <Stepper
+                          disabled={busy}
                           value={field.value}
                           onChange={field.onChange}
                           min={1}
@@ -448,6 +533,7 @@ export function IntakeForm({
                       render={({ field }) => (
                         <>
                           <Slider
+                            disabled={busy}
                             min={3}
                             max={21}
                             step={1}
@@ -472,7 +558,13 @@ export function IntakeForm({
                   control={form.control}
                   name="monthYear"
                   render={({ field }) => (
-                    <Input id="monthYear" type="month" {...field} value={field.value ?? ""} />
+                    <Input
+                      id="monthYear"
+                      type="month"
+                      {...field}
+                      value={field.value ?? ""}
+                      disabled={busy}
+                    />
                   )}
                 />
               </div>
@@ -485,7 +577,13 @@ export function IntakeForm({
                   control={form.control}
                   name="cheapestMonth"
                   render={({ field }) => (
-                    <Input id="cheapestMonth" type="month" {...field} value={field.value ?? ""} />
+                    <Input
+                      id="cheapestMonth"
+                      type="month"
+                      {...field}
+                      value={field.value ?? ""}
+                      disabled={busy}
+                    />
                   )}
                 />
               </div>
@@ -507,7 +605,13 @@ export function IntakeForm({
                 control={form.control}
                 name="adults"
                 render={({ field }) => (
-                  <Stepper value={field.value} onChange={field.onChange} min={1} max={9} />
+                  <Stepper
+                    disabled={busy}
+                    value={field.value}
+                    onChange={field.onChange}
+                    min={1}
+                    max={9}
+                  />
                 )}
               />
             </div>
@@ -517,7 +621,13 @@ export function IntakeForm({
                 control={form.control}
                 name="children"
                 render={({ field }) => (
-                  <Stepper value={field.value} onChange={field.onChange} min={0} max={9} />
+                  <Stepper
+                    disabled={busy}
+                    value={field.value}
+                    onChange={field.onChange}
+                    min={0}
+                    max={9}
+                  />
                 )}
               />
             </div>
@@ -527,7 +637,13 @@ export function IntakeForm({
                 control={form.control}
                 name="infants"
                 render={({ field }) => (
-                  <Stepper value={field.value} onChange={field.onChange} min={0} max={9} />
+                  <Stepper
+                    disabled={busy}
+                    value={field.value}
+                    onChange={field.onChange}
+                    min={0}
+                    max={9}
+                  />
                 )}
               />
             </div>
@@ -537,14 +653,15 @@ export function IntakeForm({
                 control={form.control}
                 name="cabin"
                 render={({ field }) => (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="-mx-1 flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
                     {CABIN_VALUES.map((v) => (
                       <Button
                         key={v}
                         type="button"
                         variant={field.value === v ? "default" : "outline"}
                         size="sm"
-                        className="rounded-full"
+                        className="shrink-0 rounded-full"
+                        disabled={busy}
                         onClick={() => field.onChange(v)}
                       >
                         {v.replace("_", " ")}
@@ -577,6 +694,7 @@ export function IntakeForm({
                       variant={field.value === "personal" ? "default" : "outline"}
                       size="sm"
                       className="rounded-full"
+                      disabled={busy}
                       onClick={() => field.onChange("personal")}
                     >
                       Personal item only
@@ -586,6 +704,7 @@ export function IntakeForm({
                       variant={field.value === "carryon" ? "default" : "outline"}
                       size="sm"
                       className="rounded-full"
+                      disabled={busy}
                       onClick={() => field.onChange("carryon")}
                     >
                       + Carry-on
@@ -595,6 +714,7 @@ export function IntakeForm({
                       variant={field.value === "checked" ? "default" : "outline"}
                       size="sm"
                       className="rounded-full"
+                      disabled={busy}
                       onClick={() => field.onChange("checked")}
                     >
                       + Checked bags
@@ -610,7 +730,13 @@ export function IntakeForm({
                   control={form.control}
                   name="checkedBags"
                   render={({ field }) => (
-                    <Stepper value={field.value} onChange={field.onChange} min={1} max={5} />
+                    <Stepper
+                      disabled={busy}
+                      value={field.value}
+                      onChange={field.onChange}
+                      min={1}
+                      max={5}
+                    />
                   )}
                 />
               </div>
@@ -633,6 +759,7 @@ export function IntakeForm({
                     label="No red-eyes"
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    disabled={busy}
                   />
                 )}
               />
@@ -644,6 +771,7 @@ export function IntakeForm({
                     label="Max layovers cap"
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    disabled={busy}
                   />
                 )}
               />
@@ -655,6 +783,7 @@ export function IntakeForm({
                     label="Max total time"
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    disabled={busy}
                   />
                 )}
               />
@@ -671,7 +800,7 @@ export function IntakeForm({
                       onChange={field.onChange}
                       min={0}
                       max={4}
-                      disabled={!maxLayoversEnabled}
+                      disabled={busy || !maxLayoversEnabled}
                     />
                   )}
                 />
@@ -687,7 +816,7 @@ export function IntakeForm({
                       onChange={field.onChange}
                       min={6}
                       max={48}
-                      disabled={!maxTimeEnabled}
+                      disabled={busy || !maxTimeEnabled}
                     />
                   )}
                 />
@@ -699,7 +828,7 @@ export function IntakeForm({
                 control={form.control}
                 name="avoidCarriers"
                 render={({ field }) => (
-                  <Input id="avoidCarriers" placeholder="e.g. FR, U2" {...field} />
+                  <Input id="avoidCarriers" placeholder="e.g. FR, U2" {...field} disabled={busy} />
                 )}
               />
             </div>
@@ -722,6 +851,7 @@ export function IntakeForm({
                   label="Direct preferred"
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  disabled={busy}
                 />
               )}
             />
@@ -733,6 +863,7 @@ export function IntakeForm({
                   label="Alliance for status"
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  disabled={busy}
                 />
               )}
             />
@@ -744,6 +875,7 @@ export function IntakeForm({
                   label="Avoid US connections"
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  disabled={busy}
                 />
               )}
             />
@@ -761,7 +893,7 @@ export function IntakeForm({
                 control={form.control}
                 name="budgetCeiling"
                 render={({ field }) => (
-                  <Input id="budget" inputMode="decimal" type="number" {...field} />
+                  <Input id="budget" inputMode="decimal" type="number" {...field} disabled={busy} />
                 )}
               />
             </div>
@@ -771,7 +903,7 @@ export function IntakeForm({
                 control={form.control}
                 name="currency"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select value={field.value} onValueChange={field.onChange} disabled={busy}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
@@ -787,24 +919,44 @@ export function IntakeForm({
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label>Booking residency</Label>
+              <Label htmlFor="bookingCountry">Booking residency</Label>
               <Controller
                 control={form.control}
                 name="bookingCountry"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
+                render={({ field }) =>
+                  isSmallScreen ? (
+                    <select
+                      id="bookingCountry"
+                      disabled={busy}
+                      className={cn(
+                        "flex h-11 w-full rounded-lg border border-input bg-transparent px-3 text-base shadow-xs outline-none transition-colors",
+                        "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                        "disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
+                      )}
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
                       {BOOKING_COUNTRIES.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
+                        <option key={c.code} value={c.code}>
                           {c.name}
-                        </SelectItem>
+                        </option>
                       ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                    </select>
+                  ) : (
+                    <Select value={field.value} onValueChange={field.onChange} disabled={busy}>
+                      <SelectTrigger id="bookingCountry" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BOOKING_COUNTRIES.map((c) => (
+                          <SelectItem key={c.code} value={c.code}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )
+                }
               />
             </div>
           </CardContent>
@@ -817,16 +969,27 @@ export function IntakeForm({
         ) : null}
 
         <Separator />
+        </fieldset>
 
         <Button
           type="submit"
           size="lg"
-          className="h-11 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 text-primary-foreground shadow-sm hover:from-sky-600 hover:to-sky-700"
-          disabled={!form.formState.isValid}
+          className="hidden h-12 min-h-12 w-full rounded-full bg-gradient-to-r from-sky-500 to-sky-600 text-primary-foreground shadow-sm focus-visible:ring-2 focus-visible:ring-ring sm:flex sm:h-11 sm:min-h-11 sm:w-auto hover:from-sky-600 hover:to-sky-700"
+          disabled={!form.formState.isValid || busy}
         >
           Start hunt
         </Button>
       </form>
+
+      <Button
+        type="submit"
+        size="lg"
+        form="skyflint-intake-form"
+        className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 h-12 min-h-12 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 text-primary-foreground shadow-[0_-12px_40px_rgba(0,0,0,0.12)] focus-visible:ring-2 focus-visible:ring-ring sm:hidden hover:from-sky-600 hover:to-sky-700"
+        disabled={!form.formState.isValid || busy}
+      >
+        {busy ? "Hunting…" : "Start hunt"}
+      </Button>
     </FormProvider>
   );
 }

@@ -21,7 +21,7 @@ export function FlightRouteBar({
     <div className={cn("flex flex-wrap items-center gap-1", className)}>
       {airports.map((code, i) => (
         <div key={`${code}-${i}`} className="flex items-center gap-1">
-          <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs tracking-wide">
+          <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] tracking-wide sm:px-2 sm:text-xs">
             {code}
           </span>
           {i < airports.length - 1 ? (

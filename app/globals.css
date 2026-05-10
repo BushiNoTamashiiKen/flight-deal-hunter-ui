@@ -7,6 +7,20 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .animate-skyflint-step-pulse {
+    animation: skyflint-step-pulse 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes skyflint-step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.67 0.14 232 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px oklch(0.67 0.14 232 / 0);
+  }
 }
 
 @theme inline {

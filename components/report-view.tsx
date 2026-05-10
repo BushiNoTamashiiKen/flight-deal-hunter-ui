@@ -30,27 +30,27 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
       .filter(Boolean) ?? [];
 
   return (
-    <Card className="overflow-hidden border-border/80 shadow-sm transition-shadow hover:shadow-md">
-      <CardHeader className="space-y-3 pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Badge className="rounded-full bg-amber-400 text-amber-950 hover:bg-amber-400">
+    <Card className="overflow-hidden border-border/80 shadow-sm transition-shadow hover:shadow-md focus-within:shadow-md">
+      <CardHeader className="flex flex-col gap-4 space-y-0 pb-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="order-2 flex flex-wrap items-center gap-2 sm:order-1">
+            <Badge className="rounded-full bg-amber-500 text-amber-950 hover:bg-amber-500">
               #{opt.rank}
             </Badge>
-            <Badge variant="outline" className="font-normal">
+            <Badge variant="outline" className="max-w-full whitespace-normal font-normal">
               {opt.carriers}
             </Badge>
           </div>
-          <div className="text-right">
-            <p className="font-semibold text-2xl tabular-nums tracking-tight text-sky-600 dark:text-sky-400">
+          <div className="order-1 text-left sm:order-2 sm:text-right">
+            <p className="font-semibold text-3xl tabular-nums tracking-tight text-sky-600 sm:text-2xl dark:text-sky-400">
               {opt.totalDisplay || opt.fareTotal}{" "}
               {opt.fareCurrency ? (
-                <span className="font-medium text-lg">{opt.fareCurrency}</span>
+                <span className="font-medium text-xl sm:text-lg">{opt.fareCurrency}</span>
               ) : null}
             </p>
           </div>
         </div>
-        <CardTitle className="font-medium text-base leading-snug">{opt.headline}</CardTitle>
+        <CardTitle className="order-3 font-medium text-base leading-snug">{opt.headline}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -136,7 +136,7 @@ export function ReportView({
     : [{ text: "No checklist parsed — refer to raw markdown.", done: false }];
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-20">
+    <div className="mx-auto flex max-w-3xl flex-col gap-8 pb-28 sm:pb-20">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2 className="font-semibold text-2xl tracking-tight">Results</h2>
@@ -144,7 +144,11 @@ export function ReportView({
             Structured view of the ranked report template from Step 8.
           </p>
         </div>
-        <Button variant="outline" className="rounded-full" onClick={onRerun}>
+        <Button
+          variant="outline"
+          className="hidden rounded-full sm:inline-flex"
+          onClick={onRerun}
+        >
           Re-run with tweaks
           <ArrowRight className="ml-2 size-4" />
         </Button>
@@ -238,11 +242,12 @@ export function ReportView({
           <CardTitle className="text-lg">Booking checklist</CardTitle>
           <CardDescription>Tick items off as you verify real-world constraints.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           {items.map((item, idx) => (
-            <div key={item.text} className="flex items-start gap-3">
+            <div key={item.text} className="flex items-start gap-4 py-1">
               <Checkbox
                 id={`chk-${idx}`}
+                className="mt-0.5 size-6 rounded-md [&_[data-slot=checkbox-indicator]>svg]:size-4"
                 checked={checklistState[idx] ?? item.done}
                 onCheckedChange={(v) => {
                   const next = [...checklistState];
@@ -251,13 +256,24 @@ export function ReportView({
                   onChecklistChange(next);
                 }}
               />
-              <Label htmlFor={`chk-${idx}`} className="cursor-pointer font-normal leading-snug">
+              <Label htmlFor={`chk-${idx}`} className="cursor-pointer pt-0.5 font-normal leading-relaxed">
                 {item.text}
               </Label>
             </div>
           ))}
         </CardContent>
       </Card>
+
+      <Button
+        type="button"
+        variant="default"
+        size="lg"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[45] min-h-12 rounded-full bg-gradient-to-r from-sky-500 to-sky-600 px-5 shadow-lg focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+        onClick={onRerun}
+      >
+        Re-run
+        <ArrowRight className="ml-2 size-4" />
+      </Button>
     </div>
   );
 }

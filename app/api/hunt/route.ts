@@ -11,6 +11,7 @@ import { demoHuntStream } from "@/lib/demo-run";
 import { buildFlightDealHunterPrompt } from "@/lib/hunt-prompt";
 import { intakeSchema } from "@/lib/intake-schema";
 import { summarizeIntakeForLog } from "@/lib/intake-log-summary";
+import { normalizeHuntIntakeJson } from "@/lib/normalize-hunt-intake";
 import { logger } from "@/lib/logger";
 import { extractTaggedReport } from "@/lib/parse-report";
 import { allowHuntRequest } from "@/lib/rate-limit-hunt";
@@ -24,6 +25,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const MAX_BODY_BYTES = 32 * 1024;
+
+const NO_STORE = { "Cache-Control": "no-store" } as const;
+
+function jsonResponse(body: unknown, status: number): Response {
+  return Response.json(body, { status, headers: NO_STORE });
+}
 
 function clientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -65,19 +72,19 @@ export async function POST(request: Request): Promise<Response> {
   const ip = clientIp(request);
   if (!allowHuntRequest(ip)) {
     logger.warn("hunt rate limited", { ipPrefix: ip.slice(0, 12) });
-    return Response.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
+    return jsonResponse({ error: "Too many requests. Try again shortly." }, 429);
   }
 
   const body = await readJsonBodyLimited(request);
   if (!body.ok) {
-    return Response.json({ error: body.message }, { status: body.status });
+    return jsonResponse({ error: body.message }, body.status);
   }
 
-  const parsed = intakeSchema.safeParse(body.json);
+  const parsed = intakeSchema.safeParse(normalizeHuntIntakeJson(body.json));
   if (!parsed.success) {
-    return Response.json(
+    return jsonResponse(
       { error: "Validation failed.", issues: parsed.error.flatten() },
-      { status: 422 }
+      422
     );
   }
 
@@ -117,7 +124,7 @@ export async function POST(request: Request): Promise<Response> {
   return new Response(stream, {
     headers: {
       "Content-Type": "application/x-ndjson",
-      "Cache-Control": "no-store",
+      ...NO_STORE,
     },
   });
 }

@@ -9,12 +9,16 @@ import { cn } from "@/lib/utils";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
 });
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#0ea5e9" },
     { media: "(prefers-color-scheme: dark)", color: "#0284c7" },
@@ -49,6 +53,11 @@ export const metadata: Metadata = {
     title: "Skyflint — Hunt cheap flights",
     description:
       "Deep multi-source flight deal search powered by an autonomous agent.",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Skyflint",
+    statusBarStyle: "default",
   },
 };
 
