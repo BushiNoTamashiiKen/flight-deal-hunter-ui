@@ -15,6 +15,7 @@
 # but break streaming, so we keep this on a standard function and bump the
 # timeout via the dashboard / netlify.toml functions block instead.
 [functions]
+  directory = "netlify/functions"
   node_bundler = "esbuild"
 
 [functions."api/hunt"]
