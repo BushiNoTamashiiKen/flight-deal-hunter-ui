@@ -25,12 +25,13 @@ ${serialized}
 
 ## Execution rules (from the skill — strict)
 1. **Cheapest = lowest verified all-in total**, not OTA headline or one-aggregator sticker price. Rank only after **Step 7 normalization** on every finalist.
-2. **Before any "cheapest" claim:** run **≥4 distinct sources in parallel** (same dates/pax/cabin/bags intent). Default pool includes **Google Flights, Kayak, Skyscanner, ITA Matrix, Kiwi** — pick ≥4 relevant to the route; Asia-heavy adds Trip.com/Wego per skill.
+2. **Before any "cheapest" claim:** run **≥6 distinct sources in parallel** (same dates/pax/cabin/bags intent). Default pool includes **Google Flights, Kayak, Skyscanner, ITA Matrix, Kiwi, Trip.com, Wego, Momondo, Hopper** — use all relevant sources for the route; if fewer than 6 are available, mark the blocked ones as **UNCHECKABLE** with a deep-link and reason.
 3. **Never invent fares, times, or carriers.** Every numeric quote must trace to a **named source + retrieval time (UTC) + deep-link** that reproduces the search. If you cannot fetch live data, write **UNCHECKABLE** for that item and still supply the **best-effort URL pattern** from the skill — do not fill gaps with plausible numbers.
 4. **Disagreement rule:** if two sources differ by **>8%** on comparable total, **pause ranking** until you reconcile (third check, fare-class match, bag inclusion alignment) or report both with **Low confidence** and explain.
 5. **Step 7.5 gate (blocking):** Do **not** open \`[[SKYFLINT_REPORT_BEGIN]]\` until each applicable bullet in Step 7.5 of the **flight-deal-hunter** skill is **done** or **UNCHECKABLE + deep-link**. Include a **### Cross-validation gate** subsection in the report summarizing PASS / PARTIAL / UNCHECKABLE per row.
-6. **LCC and self-transfer:** quote **carrier-direct** fees where aggregators flake; separate tickets need **explicit misconnect caveat** and buffer guidance.
-7. **Currency:** report in **${intake.currency}**; note POS quirks when comparing.
+6. **Breadth loop (required):** after baseline, keep expanding coverage until you hit diminishing returns: nearby-airport matrix, date-grid expansion, regional OTAs, and carrier-direct checks for each region touched by candidate routings. Stop only when one of these is true: (a) no option beats winner by ≥2% after normalization, or (b) environment/time limits block further checks — then list blocked checks as **UNCHECKABLE + link**.
+7. **LCC and self-transfer:** quote **carrier-direct** fees where aggregators flake; separate tickets need **explicit misconnect caveat** and buffer guidance.
+8. **Currency:** report in **${intake.currency}**; note POS quirks when comparing.
 
 ## Machine-readable progress markers (required)
 After you fully complete checklist step **N** (1–8), output exactly one line:

@@ -361,10 +361,10 @@ export function IntakeForm({
     <FormProvider {...form}>
       <form
         id="skyflint-intake-form"
-        className="mx-auto flex max-w-3xl flex-col gap-11 pb-32 sm:gap-14 sm:pb-24"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-24 sm:gap-12 sm:pb-16"
         onSubmit={form.handleSubmit((values) => onSubmit(values as IntakeValues))}
       >
-        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-11 border-0 p-0 sm:gap-14">
+        <fieldset disabled={busy} className="flex min-w-0 flex-col gap-10 border-0 p-0 sm:gap-12">
         <div className="flex flex-col gap-4 sm:gap-5">
           <div className="flex items-center gap-5 sm:gap-6">
             <span className="icon-chip size-[3.25rem] sm:size-14 [&_svg]:size-7 sm:[&_svg]:size-8">
@@ -1049,7 +1049,7 @@ export function IntakeForm({
         type="submit"
         size="lg"
         form="skyflint-intake-form"
-        className="fixed inset-x-4 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 h-12 min-h-12 rounded-full bg-primary text-primary-foreground shadow-dashboard-lg focus-visible:ring-2 focus-visible:ring-ring sm:hidden hover:bg-primary/95"
+        className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 h-12 min-h-12 rounded-full bg-primary text-primary-foreground shadow-dashboard-lg focus-visible:ring-2 focus-visible:ring-ring sm:hidden hover:bg-primary/95"
         disabled={!form.formState.isValid || busy}
       >
         {busy ? "Hunting…" : "Start hunt"}

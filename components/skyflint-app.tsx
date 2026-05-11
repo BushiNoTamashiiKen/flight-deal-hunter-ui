@@ -170,7 +170,7 @@ export function SkyflintApp() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <header className="sticky top-0 z-40 px-5 pb-4 pt-8 sm:px-10 lg:px-12">
+      <header className="sticky top-0 z-40 px-4 pb-3 pt-5 sm:px-10 sm:pb-4 sm:pt-8 lg:px-12">
         <div className="mx-auto flex max-w-5xl flex-col gap-6">
           <div className="flex items-center gap-4 rounded-[2rem] bg-primary px-6 py-5 shadow-dashboard-lg sm:gap-5 sm:rounded-[2.25rem] sm:px-8 sm:py-6">
             <div
@@ -201,11 +201,11 @@ export function SkyflintApp() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-10 sm:pb-12 sm:pt-8 lg:px-12">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 px-4 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-10 sm:pb-12 sm:pt-8 lg:px-12">
         <Tabs
           value={tab}
           onValueChange={(v: string) => setTab(v as typeof tab)}
-          className="gap-10 sm:gap-14"
+          className="w-full gap-8 sm:gap-12"
         >
           <TabsList className="hidden h-auto w-full grid-cols-3 gap-2 rounded-[1.75rem] bg-muted/90 p-2 shadow-dashboard sm:grid">
             <TabsTrigger
@@ -260,7 +260,7 @@ export function SkyflintApp() {
 
       <footer
         role="contentinfo"
-        className="mx-auto mt-auto w-full max-w-5xl border-border/40 border-t px-5 py-6 pb-[calc(4.75rem+env(safe-area-inset-bottom))] text-center sm:px-10 sm:pb-8 lg:px-12"
+        className="mx-auto mt-auto w-full max-w-5xl border-border/40 border-t px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom))] text-center sm:px-10 sm:py-6 sm:pb-8 lg:px-12"
       >
         <p className="text-[11px] text-muted-foreground/75 leading-relaxed tracking-wide sm:text-xs">
           © 2026 · Designed with love by Thabo

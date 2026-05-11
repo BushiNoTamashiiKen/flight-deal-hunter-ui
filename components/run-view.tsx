@@ -30,7 +30,7 @@ export function RunView({
   const showLogPanel = isSmallScreen !== true || logsOpen;
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-10 pb-20 sm:gap-12 sm:pb-24">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-20 sm:gap-10 sm:pb-16">
       <div className="space-y-3">
         <h2 className="font-semibold text-2xl tracking-tight sm:text-3xl">Hunting…</h2>
         <p className="max-w-xl text-muted-foreground text-sm leading-relaxed sm:text-base">

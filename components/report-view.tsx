@@ -136,7 +136,7 @@ export function ReportView({
     : [{ text: "No checklist parsed — refer to raw markdown.", done: false }];
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-11 pb-32 sm:gap-14 sm:pb-28">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-24 sm:gap-12 sm:pb-16">
       <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
         <div className="space-y-3">
           <h2 className="font-semibold text-2xl tracking-tight sm:text-3xl">Results</h2>
@@ -267,7 +267,7 @@ export function ReportView({
         type="button"
         variant="secondary"
         size="lg"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-[45] min-h-12 rounded-full px-5 shadow-dashboard-lg backdrop-blur-md sm:hidden"
+        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-4 z-[45] min-h-12 rounded-full px-5 shadow-dashboard-lg backdrop-blur-md sm:hidden"
         onClick={onRerun}
       >
         Re-run
