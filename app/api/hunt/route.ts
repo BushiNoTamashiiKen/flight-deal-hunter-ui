@@ -19,6 +19,7 @@ import { intakeSchema } from "@/lib/intake-schema";
 import { summarizeIntakeForLog } from "@/lib/intake-log-summary";
 import { normalizeHuntIntakeJson } from "@/lib/normalize-hunt-intake";
 import { logger } from "@/lib/logger";
+import { huntErrorMessage } from "@/lib/hunt-error-message";
 import { extractTaggedReport } from "@/lib/parse-report";
 import { allowHuntRequest } from "@/lib/rate-limit-hunt";
 import { encodeEvent } from "@/lib/stream-events";
@@ -167,15 +168,9 @@ export async function POST(request: Request): Promise<Response> {
               push(chunk);
             }
           } catch (err) {
-            logger.error("demo stream failed", {
-              message: err instanceof Error ? err.message : String(err),
-            });
-            push(
-              encodeEvent({
-                type: "error",
-                message: err instanceof Error ? err.message : "Demo stream failed.",
-              })
-            );
+            const msg = huntErrorMessage(err, "Demo stream failed.");
+            logger.error("demo stream failed", { message: msg });
+            push(encodeEvent({ type: "error", message: msg }));
           } finally {
             safeClose(controller);
           }
@@ -184,8 +179,7 @@ export async function POST(request: Request): Promise<Response> {
 
         await runLiveAgent(controller, intake, keyForStream);
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : String(err ?? "Hunt failed to start.");
+        const message = huntErrorMessage(err, "Hunt failed to start.");
         logger.error("hunt stream aborted", { message });
         push(encodeEvent({ type: "error", message }));
         safeClose(controller);
@@ -216,7 +210,7 @@ async function runLiveAgent(
     SdkAgent = sdk.Agent;
     SdkCursorAgentError = sdk.CursorAgentError;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Could not load @cursor/sdk.";
+    const msg = huntErrorMessage(err, "Could not load @cursor/sdk.");
     logger.error("sdk import failed", { message: msg });
     push(encodeEvent({ type: "error", message: msg }));
     safeClose(controller);
@@ -228,12 +222,10 @@ async function runLiveAgent(
     try {
       agent = await SdkAgent.create(buildSkyflintAgentCreateInput(apiKey));
     } catch (err) {
-      const msg =
-        err instanceof SdkCursorAgentError
-          ? `${err.message} (retryable=${String(err.isRetryable)})`
-          : err instanceof Error
-            ? err.message
-            : "Could not start Cursor agent.";
+      let msg = huntErrorMessage(err, "Could not start Cursor agent.");
+      if (err instanceof SdkCursorAgentError) {
+        msg = `${msg} (retryable=${String(err.isRetryable)})`;
+      }
       logger.error("agent create failed", { message: msg });
       push(encodeEvent({ type: "error", message: msg }));
       return;
@@ -244,8 +236,7 @@ async function runLiveAgent(
     try {
       run = await agent.send(prompt);
     } catch (err) {
-      const msg =
-        err instanceof SdkCursorAgentError ? err.message : "Send failed for Cursor agent run.";
+      const msg = huntErrorMessage(err, "Send failed for Cursor agent run.");
       logger.error("agent send failed", { message: msg });
       push(encodeEvent({ type: "error", message: msg }));
       return;
@@ -292,10 +283,14 @@ async function runLiveAgent(
     const result = await run.wait();
 
     if (result.status === "error") {
+      const errDetail =
+        typeof result.result === "string" && result.result.trim().length > 0
+          ? ` ${result.result.trim()}`
+          : "";
       push(
         encodeEvent({
           type: "log",
-          text: `Run ended with status error (run id: ${result.id}).`,
+          text: `Run ended with status error (run id: ${result.id}).${errDetail}`,
         })
       );
     }
@@ -315,12 +310,7 @@ async function runLiveAgent(
     push(encodeEvent({ type: "report", markdown: reportMd }));
     logger.info("hunt live run finished", { status: result.status });
   } catch (err) {
-    const msg =
-      err instanceof SdkCursorAgentError
-        ? err.message
-        : err instanceof Error
-          ? err.message
-          : "Unexpected agent failure.";
+    const msg = huntErrorMessage(err, "Unexpected agent failure.");
     logger.error("hunt live run error", { message: msg });
     push(encodeEvent({ type: "error", message: msg }));
   } finally {
