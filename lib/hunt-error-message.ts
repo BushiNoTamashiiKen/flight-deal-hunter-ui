@@ -7,7 +7,7 @@ const AUTH_FAILURE_HINT =
   "Update CURSOR_API_KEY in Netlify (Production): use a valid Cloud Agents API key from cursor.com/dashboard — no quotes or extra spaces, then redeploy.";
 
 const REPO_FAILURE_HINT =
-  "Check CURSOR_CLOUD_REPO_URL (HTTPS GitHub URL your key can access) and set CURSOR_CLOUD_REPO_REF=main if needed. Connect GitHub in cursor.com/dashboard/cloud-agents, then redeploy.";
+  "In cursor.com/dashboard/cloud-agents connect GitHub and grant access to the repo in CURSOR_CLOUD_REPO_URL (use https://github.com/owner/repo.git, CURSOR_CLOUD_REPO_REF=main), then redeploy.";
 
 export function huntErrorMessage(err: unknown, fallback: string): string {
   const formatted = formatUnknownError(err);
