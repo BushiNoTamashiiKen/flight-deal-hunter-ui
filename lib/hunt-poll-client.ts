@@ -54,9 +54,21 @@ export async function pollHuntUntilDone(args: {
       return "error";
     }
 
-    const body = (await res.json()) as HuntPollResponse;
+    let body: HuntPollResponse;
+    try {
+      body = (await res.json()) as HuntPollResponse;
+    } catch {
+      await sleep(POLL_INTERVAL_MS);
+      continue;
+    }
+
     if (body.events.length > 0) {
-      args.onEvents(body.events);
+      const ordered = [...body.events].sort((a, b) => {
+        if (a.type === "report") return -1;
+        if (b.type === "report") return 1;
+        return 0;
+      });
+      args.onEvents(ordered);
     }
     logCursor = body.logCursor;
 

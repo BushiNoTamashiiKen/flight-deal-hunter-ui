@@ -23,7 +23,7 @@
   timeout = 26
 
 [functions."api/hunt/status"]
-  timeout = 15
+  timeout = 26
 
 # Redundant with next.config.ts headers — covers static assets at the edge.
 [[headers]]

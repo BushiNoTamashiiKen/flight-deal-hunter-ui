@@ -1,4 +1,4 @@
-import { extractTaggedReport } from "@/lib/parse-report";
+import { extractRankedReportSection, extractTaggedReport } from "@/lib/parse-report";
 
 export function flushStepMarkers(
   text: string,
@@ -20,7 +20,10 @@ export function buildReportMarkdown(buffer: string, resultText?: string): string
   const merged =
     buffer + (typeof resultText === "string" && resultText.length > 0 ? `\n${resultText}` : "");
 
-  let reportMd = extractTaggedReport(merged)?.trim();
+  let reportMd = extractRankedReportSection(merged);
+  if (!reportMd) {
+    reportMd = extractTaggedReport(merged)?.trim();
+  }
   if (!reportMd) {
     reportMd =
       typeof resultText === "string" && resultText.trim().length > 0

@@ -206,3 +206,19 @@ export function parseRankedReport(markdown: string): ParsedReport {
 export function extractTaggedReport(fullText: string): string | undefined {
   return extractBetween(fullText, "[[SKYFLINT_REPORT_BEGIN]]", "[[SKYFLINT_REPORT_END]]");
 }
+
+/** Step 8 markdown block when markers are missing but ## Trip: is present. */
+export function extractRankedReportSection(fullText: string): string | undefined {
+  const tagged = extractTaggedReport(fullText)?.trim();
+  if (tagged) return tagged;
+
+  const tripIdx = fullText.search(/^## Trip:\s/m);
+  if (tripIdx === -1) return undefined;
+
+  const tail = fullText.slice(tripIdx);
+  const endMatch = tail.search(
+    /\n## Step \d|\n\[\[SKYFLINT_STEP_DONE:8\]\]|\[\[SKYFLINT_REPORT_END\]\]/
+  );
+  const section = (endMatch === -1 ? tail : tail.slice(0, endMatch)).trim();
+  return section.includes("### Top 3") ? section : undefined;
+}

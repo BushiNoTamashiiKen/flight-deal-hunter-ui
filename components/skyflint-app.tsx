@@ -78,7 +78,12 @@ export function SkyflintApp() {
     const seenLogLines = new Set<string>();
 
     const applyEvents = (events: HuntStreamEvent[]) => {
-      for (const evt of events) {
+      const ordered = [...events].sort((a, b) => {
+        if (a.type === "report") return -1;
+        if (b.type === "report") return 1;
+        return 0;
+      });
+      for (const evt of ordered) {
         if (evt.type === "log") {
           if (seenLogLines.has(evt.text)) continue;
           seenLogLines.add(evt.text);
@@ -198,13 +203,18 @@ export function SkyflintApp() {
         toast.message("Live stream handed off — polling Cursor Cloud for the report…", {
           duration: 5000,
         });
-        const outcome = await pollHuntUntilDone({
-          agentId: handoffMeta.agentId,
-          runId: handoffMeta.runId,
-          startedAt: handoffMeta.startedAt,
-          logCursor: handoffMeta.logCursor,
-          onEvents: applyEvents,
-        });
+        let outcome: Awaited<ReturnType<typeof pollHuntUntilDone>> = "error";
+        try {
+          outcome = await pollHuntUntilDone({
+            agentId: handoffMeta.agentId,
+            runId: handoffMeta.runId,
+            startedAt: handoffMeta.startedAt,
+            logCursor: handoffMeta.logCursor,
+            onEvents: applyEvents,
+          });
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Polling failed.");
+        }
         if (outcome === "finished" && !gotReport) {
           toast.error("Hunt finished but no report was returned.");
         } else if (outcome === "cancelled") {
