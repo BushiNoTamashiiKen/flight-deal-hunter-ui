@@ -68,7 +68,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn(inter.variable, "min-h-dvh font-sans antialiased")}>
+      <body className={cn(inter.variable, "min-h-dvh overflow-x-clip font-sans antialiased")}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
           <Toaster />

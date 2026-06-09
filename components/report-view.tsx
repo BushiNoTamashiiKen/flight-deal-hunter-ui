@@ -32,8 +32,8 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
   return (
     <Card className="overflow-hidden border-accent/30 shadow-dashboard transition-shadow duration-300 ease-spring hover:shadow-dashboard-lg focus-within:shadow-dashboard-lg dark:border-accent/35">
       <CardHeader className="flex flex-col gap-4 space-y-0 pb-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-          <div className="order-2 flex flex-wrap items-center gap-2 sm:order-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <Badge className="rounded-full bg-primary font-semibold text-primary-foreground hover:bg-primary">
               #{opt.rank}
             </Badge>
@@ -41,16 +41,16 @@ function OptionCard({ opt }: { opt: ParsedFlightOption }) {
               {opt.carriers}
             </Badge>
           </div>
-          <div className="order-1 text-left sm:order-2 sm:text-right">
-            <p className="font-semibold text-3xl tracking-tight tabular-nums text-foreground sm:text-2xl">
+          <div className="shrink-0 text-left sm:text-right">
+            <p className="font-semibold text-2xl tracking-tight tabular-nums text-foreground lg:text-3xl">
               {opt.totalDisplay || opt.fareTotal}{" "}
               {opt.fareCurrency ? (
-                <span className="font-medium text-xl sm:text-lg">{opt.fareCurrency}</span>
+                <span className="font-medium text-lg lg:text-xl">{opt.fareCurrency}</span>
               ) : null}
             </p>
           </div>
         </div>
-        <CardTitle className="order-3 font-medium text-base leading-snug">{opt.headline}</CardTitle>
+        <CardTitle className="font-medium text-base leading-snug sm:text-lg">{opt.headline}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -136,15 +136,19 @@ export function ReportView({
     : [{ text: "No checklist parsed — refer to raw markdown.", done: false }];
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-24 sm:gap-12 sm:pb-16">
-      <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
-        <div className="space-y-3">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-24 sm:gap-12 sm:pb-0 lg:max-w-4xl">
+      <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start sm:gap-8">
+        <div className="min-w-0 flex-1 space-y-3">
           <h2 className="font-semibold text-2xl tracking-tight sm:text-3xl">Results</h2>
           <p className="max-w-xl text-muted-foreground text-sm leading-relaxed sm:text-base">
             Structured view of the ranked report template from Step 8.
           </p>
         </div>
-        <Button variant="secondary" className="hidden rounded-full px-5 shadow-dashboard sm:inline-flex" onClick={onRerun}>
+        <Button
+          variant="secondary"
+          className="hidden h-11 min-h-11 shrink-0 rounded-full px-5 shadow-dashboard sm:inline-flex"
+          onClick={onRerun}
+        >
           Re-run with tweaks
           <ArrowRight className="ml-2 size-4" />
         </Button>

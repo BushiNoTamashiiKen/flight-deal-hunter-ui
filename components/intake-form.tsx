@@ -158,7 +158,7 @@ function ChipList({
         <Button
           type="button"
           variant={isDestination ? "default" : "secondary"}
-          className="min-h-11 shrink-0 sm:min-h-8"
+          className="min-h-11 w-full shrink-0 sm:w-auto sm:min-w-[5.5rem]"
           onClick={add}
           disabled={disabled}
         >
@@ -361,7 +361,7 @@ export function IntakeForm({
     <FormProvider {...form}>
       <form
         id="skyflint-intake-form"
-        className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-24 sm:gap-12 sm:pb-16"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:gap-12 sm:pb-0 lg:max-w-4xl"
         onSubmit={form.handleSubmit((values) => onSubmit(values as IntakeValues))}
       >
         <fieldset disabled={busy} className="flex min-w-0 flex-col gap-10 border-0 p-0 sm:gap-12">
@@ -1035,25 +1035,33 @@ export function IntakeForm({
         <Separator className="my-3 h-px rounded-full bg-accent/25 dark:bg-accent/30" />
         </fieldset>
 
-        <Button
-          type="submit"
-          size="lg"
-          className="hidden h-12 min-h-12 w-full rounded-full bg-primary text-primary-foreground shadow-dashboard-lg hover:bg-primary/95 focus-visible:ring-2 focus-visible:ring-ring sm:flex sm:h-11 sm:min-h-11 sm:w-auto"
-          disabled={!form.formState.isValid || busy}
-        >
-          Start hunt
-        </Button>
-      </form>
+        <div className="hidden flex-col gap-3 border-border/50 border-t pt-8 sm:flex sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-md text-muted-foreground text-sm leading-relaxed">
+            {form.formState.isValid
+              ? "All required fields look good — launch when ready."
+              : "Complete required fields above to enable the hunt."}
+          </p>
+          <Button
+            type="submit"
+            size="lg"
+            className="h-11 min-h-11 min-w-[11rem] shrink-0 rounded-full bg-primary px-8 text-primary-foreground shadow-dashboard-lg hover:bg-primary/95 focus-visible:ring-2 focus-visible:ring-ring"
+            disabled={!form.formState.isValid || busy}
+          >
+            {busy ? "Hunting…" : "Start hunt"}
+          </Button>
+        </div>
 
-      <Button
-        type="submit"
-        size="lg"
-        form="skyflint-intake-form"
-        className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 h-12 min-h-12 rounded-full bg-primary text-primary-foreground shadow-dashboard-lg focus-visible:ring-2 focus-visible:ring-ring sm:hidden hover:bg-primary/95"
-        disabled={!form.formState.isValid || busy}
-      >
-        {busy ? "Hunting…" : "Start hunt"}
-      </Button>
+        <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 -mx-4 mt-6 border-border/60 border-t bg-background/95 px-4 py-3 shadow-[0_-10px_28px_rgb(15_23_42/0.07)] backdrop-blur-md supports-[backdrop-filter]:bg-background/85 sm:hidden">
+          <Button
+            type="submit"
+            size="lg"
+            className="h-12 min-h-12 w-full rounded-full bg-primary text-primary-foreground shadow-dashboard-lg hover:bg-primary/95 focus-visible:ring-2 focus-visible:ring-ring"
+            disabled={!form.formState.isValid || busy}
+          >
+            {busy ? "Hunting…" : "Start hunt"}
+          </Button>
+        </div>
+      </form>
     </FormProvider>
   );
 }

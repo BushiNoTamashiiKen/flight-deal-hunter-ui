@@ -30,7 +30,7 @@ export function RunView({
   const showLogPanel = isSmallScreen !== true || logsOpen;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-20 sm:gap-10 sm:pb-16">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 pb-20 sm:gap-10 sm:pb-0 lg:max-w-4xl">
       <div className="space-y-3">
         <h2 className="font-semibold text-2xl tracking-tight sm:text-3xl">Hunting…</h2>
         <p className="max-w-xl text-muted-foreground text-sm leading-relaxed sm:text-base">
@@ -112,7 +112,7 @@ export function RunView({
         </CardHeader>
         {showLogPanel ? (
           <CardContent>
-            <div className="max-h-[min(420px,50dvh)] overflow-y-auto overscroll-y-contain rounded-2xl border border-accent/30 bg-muted/45 p-3 font-mono text-xs leading-relaxed shadow-inner dark:border-accent/35">
+            <div className="max-h-[min(420px,50dvh)] overflow-y-auto overscroll-y-contain rounded-2xl border border-accent/30 bg-muted/45 p-3 font-mono text-xs leading-relaxed shadow-inner sm:max-h-[min(520px,55vh)] sm:p-4 sm:text-sm dark:border-accent/35">
               {logs.length === 0 ? (
                 <div className="space-y-2">
                   <Skeleton className="h-3 w-[85%]" />

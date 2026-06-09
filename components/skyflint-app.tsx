@@ -169,10 +169,10 @@ export function SkyflintApp() {
   }, []);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="sticky top-0 z-40 px-4 pb-3 pt-5 sm:px-10 sm:pb-4 sm:pt-8 lg:px-12">
-        <div className="mx-auto flex max-w-5xl flex-col gap-6">
-          <div className="flex items-center gap-4 rounded-[2rem] bg-primary px-6 py-5 shadow-dashboard-lg sm:gap-5 sm:rounded-[2.25rem] sm:px-8 sm:py-6">
+    <div className="flex min-h-dvh flex-col overflow-x-clip bg-background">
+      <header className="sticky top-0 z-40 w-full px-4 pb-3 pt-5 sm:px-10 sm:pb-4 sm:pt-8 lg:px-12">
+        <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-col gap-6">
+          <div className="flex items-center gap-4 rounded-[2rem] bg-primary px-6 py-5 shadow-dashboard-lg sm:items-center sm:gap-5 sm:rounded-[2.25rem] sm:px-8 sm:py-6">
             <div
               className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/45 font-bold text-xl text-primary-foreground shadow-inner backdrop-blur-sm dark:bg-black/25 sm:size-14 sm:text-2xl"
               aria-hidden
@@ -201,36 +201,36 @@ export function SkyflintApp() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 px-4 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-10 sm:pb-12 sm:pt-8 lg:px-12">
+      <main className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col px-4 pb-[calc(6.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-10 sm:pb-12 sm:pt-8 lg:px-12">
         <Tabs
           value={tab}
           onValueChange={(v: string) => setTab(v as typeof tab)}
-          className="w-full gap-8 sm:gap-12"
+          className="flex min-h-0 w-full flex-1 flex-col gap-6 sm:gap-8 lg:gap-10"
         >
-          <TabsList className="hidden h-auto w-full grid-cols-3 gap-2 rounded-[1.75rem] bg-muted/90 p-2 shadow-dashboard sm:grid">
+          <TabsList className="hidden h-auto min-h-[3.25rem] w-full shrink-0 grid-cols-3 gap-2 rounded-[1.75rem] bg-muted/90 p-2 shadow-dashboard sm:grid">
             <TabsTrigger
               value="intake"
-              className="rounded-2xl py-3.5 font-medium text-sm data-[active]:bg-accent data-[active]:text-accent-foreground data-[active]:shadow-dashboard"
+              className="h-auto min-h-11 rounded-2xl px-4 py-3 font-medium text-sm data-[active]:bg-accent data-[active]:text-accent-foreground data-[active]:shadow-dashboard"
             >
               New search
             </TabsTrigger>
             <TabsTrigger
               value="run"
               disabled={!runStarted}
-              className="rounded-2xl py-3.5 font-medium text-sm data-[active]:bg-accent data-[active]:text-accent-foreground data-[active]:shadow-dashboard"
+              className="h-auto min-h-11 rounded-2xl px-4 py-3 font-medium text-sm data-[active]:bg-accent data-[active]:text-accent-foreground data-[active]:shadow-dashboard"
             >
               Hunting…
             </TabsTrigger>
             <TabsTrigger
               value="report"
               disabled={!reportMd}
-              className="rounded-2xl py-3.5 font-medium text-sm data-[active]:bg-accent data-[active]:text-accent-foreground data-[active]:shadow-dashboard"
+              className="h-auto min-h-11 rounded-2xl px-4 py-3 font-medium text-sm data-[active]:bg-accent data-[active]:text-accent-foreground data-[active]:shadow-dashboard"
             >
               Results
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="intake" className="focus-visible:outline-none">
+          <TabsContent value="intake" className="w-full min-w-0 focus-visible:outline-none">
             <IntakeForm
               key={formKey}
               initialValues={lastIntake}
@@ -239,11 +239,11 @@ export function SkyflintApp() {
             />
           </TabsContent>
 
-          <TabsContent value="run" className="focus-visible:outline-none">
+          <TabsContent value="run" className="w-full min-w-0 focus-visible:outline-none">
             <RunView stepPhase={stepPhase} logs={logs} />
           </TabsContent>
 
-          <TabsContent value="report" className="focus-visible:outline-none">
+          <TabsContent value="report" className="w-full min-w-0 focus-visible:outline-none">
             {reportMd ? (
               <ReportView
                 parsed={parsed}
@@ -370,15 +370,15 @@ function ThemeToggleButton({
       </button>
     );
   }
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-        className="size-11 min-h-11 min-w-11 rounded-full border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 sm:size-10 sm:min-h-10 sm:min-w-10 dark:border-white/20 dark:bg-white/10 dark:text-white"
-        onClick={() => setTheme(dark ? "light" : "dark")}
-      >
-        {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-      </Button>
-    );
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+      className="size-11 min-h-11 min-w-11 shrink-0 rounded-full border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 sm:size-10 sm:min-h-10 sm:min-w-10 dark:border-white/20 dark:bg-white/10 dark:text-white"
+      onClick={() => setTheme(dark ? "light" : "dark")}
+    >
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </Button>
+  );
 }
