@@ -87,6 +87,17 @@ export async function GET(request: Request): Promise<Response> {
       apiKey,
     });
 
+    if (run.status === "running") {
+      // conversation() can block until the run finishes — keep polls fast while running.
+      const body: HuntPollResponse = {
+        status: "running",
+        events: [{ type: "heartbeat", elapsedSec, phase: "polling" }],
+        logCursor,
+        elapsedSec,
+      };
+      return jsonResponse(body, 200);
+    }
+
     const seenSteps = new Set<number>();
     let conversationLines: string[] = [];
     let conversationText = "";
@@ -108,15 +119,13 @@ export async function GET(request: Request): Promise<Response> {
     const stepEvents = stepEventsFromText(conversationText, seenSteps);
     const events: HuntStreamEvent[] = [...newLogEvents, ...stepEvents];
 
-    if (run.status === "running") {
+    if (run.status === "cancelled") {
       const body: HuntPollResponse = {
-        status: "running",
-        events: [
-          ...events,
-          { type: "heartbeat", elapsedSec, phase: "polling" },
-        ],
+        status: "cancelled",
+        events,
         logCursor: conversationLines.length,
         elapsedSec,
+        error: "Agent run was cancelled.",
       };
       return jsonResponse(body, 200);
     }
@@ -144,16 +153,6 @@ export async function GET(request: Request): Promise<Response> {
             logCursor: conversationLines.length,
             elapsedSec,
             error: "Agent run failed.",
-          };
-          return jsonResponse(body, 200);
-        }
-        if (result.status === "cancelled") {
-          const body: HuntPollResponse = {
-            status: "cancelled",
-            events,
-            logCursor: conversationLines.length,
-            elapsedSec,
-            error: "Agent run was cancelled.",
           };
           return jsonResponse(body, 200);
         }

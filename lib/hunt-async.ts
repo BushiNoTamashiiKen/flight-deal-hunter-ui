@@ -13,8 +13,8 @@ export function shouldUseAsyncHunt(): boolean {
   return isManagedServerlessHost() && Boolean(trimmedCursorApiKey());
 }
 
-const CLOUD_AGENT_ID = /^bc-[a-zA-Z0-9-]{8,120}$/;
-const RUN_ID = /^[a-zA-Z0-9-]{8,120}$/;
+const CLOUD_AGENT_ID = /^bc-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const RUN_ID = /^run-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isValidCloudAgentId(agentId: string): boolean {
   return CLOUD_AGENT_ID.test(agentId);
