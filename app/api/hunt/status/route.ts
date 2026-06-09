@@ -6,7 +6,7 @@ import { isValidCloudAgentId, isValidRunId } from "@/lib/hunt-async";
 import { buildReportMarkdown, flushStepMarkers } from "@/lib/hunt-report";
 import { huntErrorMessage } from "@/lib/hunt-error-message";
 import { logger } from "@/lib/logger";
-import { allowHuntRequest } from "@/lib/rate-limit-hunt";
+import { allowHuntPoll } from "@/lib/rate-limit-hunt";
 import { trimmedCursorApiKey } from "@/lib/cursor-agent-options";
 import type { HuntPollResponse, HuntStreamEvent } from "@/lib/stream-events";
 
@@ -51,7 +51,7 @@ function stepEventsFromText(text: string, seenSteps: Set<number>): HuntStreamEve
 
 export async function GET(request: Request): Promise<Response> {
   const ip = clientIp(request);
-  if (!allowHuntRequest(ip)) {
+  if (!allowHuntPoll(ip)) {
     return jsonResponse({ error: "Too many requests. Try again shortly." }, 429);
   }
 

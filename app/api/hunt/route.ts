@@ -22,7 +22,7 @@ import { summarizeIntakeForLog } from "@/lib/intake-log-summary";
 import { normalizeHuntIntakeJson } from "@/lib/normalize-hunt-intake";
 import { logger } from "@/lib/logger";
 import { huntErrorMessage } from "@/lib/hunt-error-message";
-import { allowHuntRequest } from "@/lib/rate-limit-hunt";
+import { allowHuntStart } from "@/lib/rate-limit-hunt";
 import { encodeEvent } from "@/lib/stream-events";
 
 import type { IntakeValues } from "@/lib/intake-schema";
@@ -87,7 +87,7 @@ async function readJsonBodyLimited(request: Request): Promise<
 
 export async function POST(request: Request): Promise<Response> {
   const ip = clientIp(request);
-  if (!allowHuntRequest(ip)) {
+  if (!allowHuntStart(ip)) {
     logger.warn("hunt rate limited", { ipPrefix: ip.slice(0, 12) });
     return jsonResponse({ error: "Too many requests. Try again shortly." }, 429);
   }

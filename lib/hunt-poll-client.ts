@@ -37,6 +37,11 @@ export async function pollHuntUntilDone(args: {
       continue;
     }
 
+    if (res.status === 429) {
+      await sleep(POLL_INTERVAL_MS * 2);
+      continue;
+    }
+
     if (!res.ok) {
       let msg = `Poll failed (${res.status}).`;
       try {
