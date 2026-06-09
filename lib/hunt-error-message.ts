@@ -6,6 +6,9 @@
 const AUTH_FAILURE_HINT =
   "Update CURSOR_API_KEY in Netlify (Production): use a valid Cloud Agents API key from cursor.com/dashboard — no quotes or extra spaces, then redeploy.";
 
+const REPO_FAILURE_HINT =
+  "Check CURSOR_CLOUD_REPO_URL (HTTPS GitHub URL your key can access) and set CURSOR_CLOUD_REPO_REF=main if needed. Connect GitHub in cursor.com/dashboard/cloud-agents, then redeploy.";
+
 export function huntErrorMessage(err: unknown, fallback: string): string {
   const formatted = formatUnknownError(err);
   const base =
@@ -14,7 +17,21 @@ export function huntErrorMessage(err: unknown, fallback: string): string {
   if (isAuthFailure(err, base)) {
     return `${base} ${AUTH_FAILURE_HINT}`;
   }
+  if (isRepoConfigFailure(base)) {
+    return `${base} ${REPO_FAILURE_HINT}`;
+  }
   return base;
+}
+
+function isRepoConfigFailure(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("default branch") ||
+    lower.includes("validation_error") ||
+    (lower.includes("repository") && lower.includes("integration")) ||
+    lower.includes("scm integration") ||
+    lower.includes("repository_access")
+  );
 }
 
 function isAuthFailure(err: unknown, message: string): boolean {

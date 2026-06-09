@@ -16,6 +16,7 @@ export async function GET(): Promise<Response> {
     Boolean(trimmedCloudRepoUrl());
   const commit =
     process.env.COMMIT_REF ??
+    process.env.NETLIFY_COMMIT_REF ??
     process.env.VERCEL_GIT_COMMIT_SHA ??
     "local";
 

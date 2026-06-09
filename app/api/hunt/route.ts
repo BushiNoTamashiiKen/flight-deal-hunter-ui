@@ -10,6 +10,7 @@
 import {
   cloudRepoEnvDocs,
   isManagedServerlessHost,
+  trimmedCloudRepoRef,
   trimmedCloudRepoUrl,
   trimmedCursorApiKey,
 } from "@/lib/cursor-agent-options";
@@ -62,7 +63,7 @@ function buildSkyflintAgentCreateInput(apiKey: string) {
       name,
       model,
       cloud: {
-        repos: [{ url: repoUrl }],
+        repos: [{ url: repoUrl, startingRef: trimmedCloudRepoRef() }],
         autoCreatePR: false as const,
         skipReviewerRequest: true as const,
       },
