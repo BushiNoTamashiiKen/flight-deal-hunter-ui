@@ -3,12 +3,32 @@
  * errors (including some from the Cursor SDK / gRPC stack) use message "Error"
  * with real detail on `code`, `operation`, or `cause`.
  */
+const AUTH_FAILURE_HINT =
+  "Update CURSOR_API_KEY in Netlify (Production): use a valid Cloud Agents API key from cursor.com/dashboard — no quotes or extra spaces, then redeploy.";
+
 export function huntErrorMessage(err: unknown, fallback: string): string {
   const formatted = formatUnknownError(err);
-  if (formatted.trim().length === 0 || formatted.trim() === "Error") {
-    return fallback;
+  const base =
+    formatted.trim().length === 0 || formatted.trim() === "Error" ? fallback : formatted;
+
+  if (isAuthFailure(err, base)) {
+    return `${base} ${AUTH_FAILURE_HINT}`;
   }
-  return formatted;
+  return base;
+}
+
+function isAuthFailure(err: unknown, message: string): boolean {
+  if (typeof err === "object" && err !== null && err instanceof Error) {
+    const e = err as Error & { status?: number };
+    if (e.status === 401) return true;
+  }
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("invalid user api key") ||
+    lower.includes("invalid api key") ||
+    lower.includes("authentication") ||
+    lower.includes("status=401")
+  );
 }
 
 function formatUnknownError(err: unknown): string {
