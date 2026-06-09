@@ -131,7 +131,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     let resultText = run.result;
-    if (run.supports("wait") && run.status !== "cancelled") {
+    if (run.supports("wait")) {
       try {
         const result = await run.wait();
         if (typeof result.result === "string" && result.result.length > 0) {
