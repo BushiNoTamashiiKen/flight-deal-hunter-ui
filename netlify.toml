@@ -19,9 +19,11 @@
   node_bundler = "esbuild"
 
 [functions."api/hunt"]
-  # Netlify Pro+ allows up to 26s. For longer runs, the user must enable
-  # Background Functions and the UI must poll instead of stream.
+  # Netlify Pro+ allows up to 26s. Live hunts hand off to /api/hunt/status polling.
   timeout = 26
+
+[functions."api/hunt/status"]
+  timeout = 15
 
 # Redundant with next.config.ts headers — covers static assets at the edge.
 [[headers]]

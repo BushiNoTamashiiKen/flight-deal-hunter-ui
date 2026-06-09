@@ -24,6 +24,7 @@ ${WORKFLOW_CHECKLIST}
 ${serialized}
 
 ## Execution rules (from the skill — strict)
+0. **No repository tools.** This prompt is self-contained. Do **not** call \`file_search\`, codebase search, \`read\`, \`grep\`, or any repo/file tools — the checkout is the Skyflint UI app, not the skill corpus. Start **Step 1** in text, then use **\`web_search\` / \`web_fetch\`** (and browser tools if available) for all fare research.
 1. **Cheapest = lowest verified all-in total**, not OTA headline or one-aggregator sticker price. Rank only after **Step 7 normalization** on every finalist.
 2. **Before any "cheapest" claim:** run **≥6 distinct sources in parallel** (same dates/pax/cabin/bags intent). Default pool includes **Google Flights, Kayak, Skyscanner, ITA Matrix, Kiwi, Trip.com, Wego, Momondo, Hopper** — use all relevant sources for the route; if fewer than 6 are available, mark the blocked ones as **UNCHECKABLE** with a deep-link and reason.
 3. **Never invent fares, times, or carriers.** Every numeric quote must trace to a **named source + retrieval time (UTC) + deep-link** that reproduces the search. If you cannot fetch live data, write **UNCHECKABLE** for that item and still supply the **best-effort URL pattern** from the skill — do not fill gaps with plausible numbers.

@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { IntakeValues } from "@/lib/intake-schema";
 import { defaultIntakeValues } from "@/lib/intake-schema";
 import { parseRankedReport } from "@/lib/parse-report";
+import { pollHuntUntilDone } from "@/lib/hunt-poll-client";
 import type { HuntStreamEvent } from "@/lib/stream-events";
 import { WORKFLOW_STEPS } from "@/lib/workflow";
 
@@ -39,6 +40,10 @@ export function SkyflintApp() {
   const [checklistState, setChecklistState] = React.useState<boolean[]>([]);
   const [runStarted, setRunStarted] = React.useState(false);
   const [huntBusy, setHuntBusy] = React.useState(false);
+  const [huntElapsedSec, setHuntElapsedSec] = React.useState(0);
+  const [huntHeartbeatPhase, setHuntHeartbeatPhase] = React.useState<
+    "streaming" | "waiting" | "polling" | null
+  >(null);
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
@@ -65,6 +70,46 @@ export function SkyflintApp() {
     setStepPhase(emptyStepPhase());
     setTab("run");
     setHuntBusy(true);
+    setHuntElapsedSec(0);
+    setHuntHeartbeatPhase(null);
+
+    let gotReport = false;
+    let gotHandoff = false;
+    const seenLogLines = new Set<string>();
+
+    const applyEvents = (events: HuntStreamEvent[]) => {
+      for (const evt of events) {
+        if (evt.type === "log") {
+          if (seenLogLines.has(evt.text)) continue;
+          seenLogLines.add(evt.text);
+          setLogs((prev) => [...prev, evt.text]);
+        } else if (evt.type === "step") {
+          setStepPhase((prev) => {
+            const next = { ...prev };
+            if (evt.status === "running") {
+              next[evt.step] = "running";
+            } else if (evt.status === "done") {
+              next[evt.step] = "done";
+            }
+            return next;
+          });
+        } else if (evt.type === "heartbeat") {
+          setHuntElapsedSec(evt.elapsedSec);
+          setHuntHeartbeatPhase(evt.phase);
+        } else if (evt.type === "handoff") {
+          gotHandoff = true;
+          setHuntHeartbeatPhase("polling");
+          setHuntElapsedSec(evt.elapsedSec);
+        } else if (evt.type === "report") {
+          gotReport = true;
+          setReportMd(evt.markdown);
+          setTab("report");
+          toast.success("Ranked report ready.");
+        } else if (evt.type === "error") {
+          toast.error(evt.message);
+        }
+      }
+    };
 
     try {
       let res: Response;
@@ -110,6 +155,7 @@ export function SkyflintApp() {
 
       const decoder = new TextDecoder();
       let buffer = "";
+      let handoffMeta: Extract<HuntStreamEvent, { type: "handoff" }> | null = null;
 
       try {
         while (true) {
@@ -125,40 +171,56 @@ export function SkyflintApp() {
             try {
               evt = JSON.parse(trimmed) as HuntStreamEvent;
             } catch {
-              setLogs((prev) => [...prev, trimmed]);
+              if (!seenLogLines.has(trimmed)) {
+                seenLogLines.add(trimmed);
+                setLogs((prev) => [...prev, trimmed]);
+              }
               continue;
             }
 
-            if (evt.type === "log") {
-              setLogs((prev) => [...prev, evt.text]);
-            } else if (evt.type === "step") {
-              setStepPhase((prev) => {
-                const next = { ...prev };
-                if (evt.status === "running") {
-                  next[evt.step] = "running";
-                } else if (evt.status === "done") {
-                  next[evt.step] = "done";
-                }
-                return next;
-              });
-            } else if (evt.type === "report") {
-              setReportMd(evt.markdown);
-              setTab("report");
-              toast.success("Ranked report ready.");
-            } else if (evt.type === "error") {
-              toast.error(evt.message);
+            if (evt.type === "handoff") {
+              handoffMeta = evt;
             }
+            applyEvents([evt]);
           }
 
           if (done) break;
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Stream interrupted.");
+        if (!gotHandoff) {
+          toast.error(err instanceof Error ? err.message : "Stream interrupted.");
+        }
       } finally {
         reader.releaseLock();
       }
+
+      if (handoffMeta && !gotReport) {
+        toast.message("Live stream handed off — polling Cursor Cloud for the report…", {
+          duration: 5000,
+        });
+        const outcome = await pollHuntUntilDone({
+          agentId: handoffMeta.agentId,
+          runId: handoffMeta.runId,
+          startedAt: handoffMeta.startedAt,
+          logCursor: handoffMeta.logCursor,
+          onEvents: applyEvents,
+        });
+        if (outcome === "finished" && !gotReport) {
+          toast.error("Hunt finished but no report was returned.");
+        } else if (outcome === "cancelled") {
+          toast.error("Hunt was cancelled.");
+        } else if (outcome === "timeout") {
+          toast.error("Hunt timed out while polling.");
+        }
+      } else if (!gotReport && !gotHandoff) {
+        toast.message(
+          "Hunt stream ended before a report arrived — retry or run locally for full hunts.",
+          { duration: 8000 }
+        );
+      }
     } finally {
       setHuntBusy(false);
+      setHuntHeartbeatPhase(null);
     }
   }, []);
 
@@ -240,7 +302,13 @@ export function SkyflintApp() {
           </TabsContent>
 
           <TabsContent value="run" className="w-full min-w-0 focus-visible:outline-none">
-            <RunView stepPhase={stepPhase} logs={logs} />
+            <RunView
+              stepPhase={stepPhase}
+              logs={logs}
+              huntBusy={huntBusy}
+              elapsedSec={huntElapsedSec}
+              heartbeatPhase={huntHeartbeatPhase}
+            />
           </TabsContent>
 
           <TabsContent value="report" className="w-full min-w-0 focus-visible:outline-none">

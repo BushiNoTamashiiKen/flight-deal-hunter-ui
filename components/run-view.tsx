@@ -15,9 +15,15 @@ export type StepPhase = "pending" | "running" | "done";
 export function RunView({
   stepPhase,
   logs,
+  huntBusy,
+  elapsedSec,
+  heartbeatPhase,
 }: {
   stepPhase: Record<number, StepPhase>;
   logs: string[];
+  huntBusy?: boolean;
+  elapsedSec?: number;
+  heartbeatPhase?: "streaming" | "waiting" | "polling" | null;
 }) {
   const isSmallScreen = useMediaQuery("(max-width: 639px)");
   const [logsOpen, setLogsOpen] = React.useState(false);
@@ -36,6 +42,21 @@ export function RunView({
         <p className="max-w-xl text-muted-foreground text-sm leading-relaxed sm:text-base">
           Live Trip Hunt Progress checklist — mirrors the Flight Deal Hunter workflow.
         </p>
+        {huntBusy ? (
+          <p
+            className="rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-primary text-sm dark:border-primary/35 dark:bg-primary/10"
+            role="status"
+            aria-live="polite"
+          >
+            {heartbeatPhase === "polling"
+              ? `Polling Cursor Cloud (${elapsedSec ?? 0}s) — agent keeps running after the live stream handoff.`
+              : heartbeatPhase === "waiting"
+                ? `Agent still running off-stream (${elapsedSec ?? 0}s) — web fare checks can take several minutes.`
+                : elapsedSec && elapsedSec >= 8
+                  ? `Still hunting (${elapsedSec}s) — logs may pause between tool calls.`
+                  : "Starting agent…"}
+          </p>
+        ) : null}
       </div>
 
       <Card>

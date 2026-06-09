@@ -2,26 +2,26 @@
  * NDJSON stream using Web Streams (`ReadableStream`).
  * Netlify Next Runtime v5 supports App Router streaming when `runtime = 'nodejs'`.
  *
- * Netlify Pro tops out around **26s** per synchronous serverless invocation — demo
- * mode completes well inside that budget. Live Cursor agent runs can exceed it;
- * hosting then requires enqueue + poll/Background Functions (non-streaming), or
- * self-host (Docker/VPS) without that ceiling.
+ * On managed hosts (Netlify/Vercel), live hunts **hand off** to GET /api/hunt/status
+ * after ~20s so the Cursor cloud agent can finish beyond the 26s function ceiling.
  */
+import { buildSkyflintAgentCreateInput } from "@/lib/hunt-agent-config";
+import { shouldUseAsyncHunt, STREAM_HANDOFF_MS } from "@/lib/hunt-async";
 import {
   cloudRepoEnvDocs,
   isManagedServerlessHost,
-  trimmedCloudRepoRef,
   trimmedCloudRepoUrl,
   trimmedCursorApiKey,
 } from "@/lib/cursor-agent-options";
 import { demoHuntStream } from "@/lib/demo-run";
 import { buildFlightDealHunterPrompt } from "@/lib/hunt-prompt";
+import { buildReportMarkdown, flushStepMarkers } from "@/lib/hunt-report";
+import { pushSdkMessage } from "@/lib/hunt-sdk-messages";
 import { intakeSchema } from "@/lib/intake-schema";
 import { summarizeIntakeForLog } from "@/lib/intake-log-summary";
 import { normalizeHuntIntakeJson } from "@/lib/normalize-hunt-intake";
 import { logger } from "@/lib/logger";
 import { huntErrorMessage } from "@/lib/hunt-error-message";
-import { extractTaggedReport } from "@/lib/parse-report";
 import { allowHuntRequest } from "@/lib/rate-limit-hunt";
 import { encodeEvent } from "@/lib/stream-events";
 
@@ -33,6 +33,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const MAX_BODY_BYTES = 32 * 1024;
+const HEARTBEAT_MS = 8_000;
 
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 
@@ -40,44 +41,12 @@ function jsonResponse(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: NO_STORE });
 }
 
-/** Avoid double-close rejects from ReadableStream controllers. */
 function safeClose(controller: ReadableStreamDefaultController<Uint8Array>): void {
   try {
     controller.close();
   } catch {
     // already closed
   }
-}
-
-function buildSkyflintAgentCreateInput(apiKey: string) {
-  const name = "Skyflint flight-deal-hunter";
-  const model = { id: "composer-2" as const };
-
-  if (isManagedServerlessHost()) {
-    const repoUrl = trimmedCloudRepoUrl();
-    if (!repoUrl) {
-      throw new Error(`${cloudRepoEnvDocs} must be set for live hunts on Netlify/Vercel/Lambda`);
-    }
-    return {
-      apiKey,
-      name,
-      model,
-      cloud: {
-        repos: [{ url: repoUrl, startingRef: trimmedCloudRepoRef() }],
-        autoCreatePR: false as const,
-        skipReviewerRequest: true as const,
-      },
-    };
-  }
-
-  return {
-    apiKey,
-    name,
-    model,
-    local: {
-      cwd: process.cwd(),
-    },
-  };
 }
 
 function clientIp(request: Request): string {
@@ -141,7 +110,6 @@ export async function POST(request: Request): Promise<Response> {
 
   const apiKeyForLive = trimmedCursorApiKey();
 
-  /** Local Cursor agents cannot run inside managed serverless hosts — use a cloud repo. */
   if (apiKeyForLive && isManagedServerlessHost() && !trimmedCloudRepoUrl()) {
     return jsonResponse(
       {
@@ -157,8 +125,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const encoder = new TextEncoder();
-      const push = (line: string) => controller.enqueue(encoder.encode(line));
+      const push = (line: string) => controller.enqueue(new TextEncoder().encode(line));
 
       try {
         const keyForStream = trimmedCursorApiKey();
@@ -201,9 +168,12 @@ async function runLiveAgent(
   intake: IntakeValues,
   apiKey: string
 ): Promise<void> {
-  const encoder = new TextEncoder();
-  const push = (line: string) => controller.enqueue(encoder.encode(line));
-
+  const push = (line: string) => controller.enqueue(new TextEncoder().encode(line));
+  const startedAt = Date.now();
+  const useAsync = shouldUseAsyncHunt();
+  const handoffAt = useAsync ? startedAt + STREAM_HANDOFF_MS : Number.POSITIVE_INFINITY;
+  let heartbeatPhase: "streaming" | "waiting" = "streaming";
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
   let SdkAgent: typeof import("@cursor/sdk").Agent;
   let SdkCursorAgentError: typeof import("@cursor/sdk").CursorAgentError;
   try {
@@ -219,6 +189,8 @@ async function runLiveAgent(
   }
 
   let agent: Awaited<ReturnType<(typeof SdkAgent)["create"]>> | undefined;
+  let handoffIssued = false;
+
   try {
     try {
       agent = await SdkAgent.create(buildSkyflintAgentCreateInput(apiKey));
@@ -233,9 +205,45 @@ async function runLiveAgent(
     }
 
     const prompt = buildFlightDealHunterPrompt(intake);
+    let buffer = "";
+    const seenSteps = new Set<number>();
+
+    const markStepDone = (step: number) => {
+      push(encodeEvent({ type: "step", step, status: "done" }));
+    };
+
+    const onAssistantText = (text: string) => {
+      buffer += text;
+    };
+
+    const flushMarkers = (text: string) => {
+      flushStepMarkers(text, seenSteps, markStepDone);
+    };
+
+    heartbeat = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+      push(
+        encodeEvent({
+          type: "heartbeat",
+          elapsedSec,
+          phase: heartbeatPhase,
+        })
+      );
+    }, HEARTBEAT_MS);
+
     let run;
     try {
-      run = await agent.send(prompt);
+      run = await agent.send(prompt, {
+        onDelta: ({ update }) => {
+          if (update.type === "thinking-delta" && update.text) {
+            push(encodeEvent({ type: "log", text: `[thinking] ${update.text}` }));
+          } else if (update.type === "step-started") {
+            push(encodeEvent({ type: "log", text: "[step] Agent step started…" }));
+          } else if (update.type === "turn-ended") {
+            push(encodeEvent({ type: "log", text: "[turn] Agent turn finished, continuing…" }));
+          }
+        },
+      });
     } catch (err) {
       const msg = huntErrorMessage(err, "Send failed for Cursor agent run.");
       logger.error("agent send failed", { message: msg });
@@ -243,43 +251,72 @@ async function runLiveAgent(
       return;
     }
 
-    let buffer = "";
-    const seenSteps = new Set<number>();
-
-    const flushStepMarkers = (text: string) => {
-      const re = /\[\[SKYFLINT_STEP_DONE:(\d+)\]\]/g;
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(text)) !== null) {
-        const step = Number(m[1]);
-        if (!seenSteps.has(step)) {
-          seenSteps.add(step);
-          push(encodeEvent({ type: "step", step, status: "done" }));
-        }
-      }
-    };
-
     if (run.supports("stream")) {
       for await (const event of run.stream()) {
-        if (event.type === "assistant") {
-          for (const block of event.message.content) {
-            if (block.type === "text") {
-              buffer += block.text;
-              flushStepMarkers(buffer);
-              push(encodeEvent({ type: "log", text: block.text }));
-            }
-          }
-        } else if (event.type === "thinking") {
-          push(encodeEvent({ type: "log", text: `[thinking] ${event.text}` }));
-        } else if (event.type === "tool_call") {
+        pushSdkMessage(push, event, flushMarkers, onAssistantText);
+        if (Date.now() >= handoffAt) {
+          handoffIssued = true;
+          const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
           push(
             encodeEvent({
               type: "log",
-              text: `[tool] ${event.name} → ${event.status}`,
+              text: "[status] Handing off to background polling — agent keeps running on Cursor Cloud…",
             })
           );
+          push(
+            encodeEvent({
+              type: "handoff",
+              agentId: agent.agentId,
+              runId: run.id,
+              logCursor: 0,
+              elapsedSec,
+              startedAt,
+            })
+          );
+          logger.info("hunt async handoff", {
+            agentId: agent.agentId.slice(0, 12),
+            runId: run.id.slice(0, 12),
+            elapsedSec,
+          });
+          return;
         }
       }
     }
+
+    if (useAsync && !handoffIssued) {
+      handoffIssued = true;
+      const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+      push(
+        encodeEvent({
+          type: "log",
+          text: "[status] Handing off to background polling — agent keeps running on Cursor Cloud…",
+        })
+      );
+      push(
+        encodeEvent({
+          type: "handoff",
+          agentId: agent.agentId,
+          runId: run.id,
+          logCursor: 0,
+          elapsedSec,
+          startedAt,
+        })
+      );
+      logger.info("hunt async handoff after stream", {
+        agentId: agent.agentId.slice(0, 12),
+        runId: run.id.slice(0, 12),
+        elapsedSec,
+      });
+      return;
+    }
+
+    heartbeatPhase = "waiting";
+    push(
+      encodeEvent({
+        type: "log",
+        text: "[status] Live stream paused — waiting for agent to finish (web searches can take several minutes)…",
+      })
+    );
 
     const result = await run.wait();
 
@@ -296,17 +333,10 @@ async function runLiveAgent(
       );
     }
 
-    const merged =
-      buffer +
-      (typeof result.result === "string" && result.result.length > 0 ? `\n${result.result}` : "");
-
-    let reportMd = extractTaggedReport(merged)?.trim();
-    if (!reportMd) {
-      reportMd =
-        typeof result.result === "string" && result.result.trim().length > 0
-          ? result.result.trim()
-          : merged.trim();
-    }
+    const reportMd = buildReportMarkdown(
+      buffer,
+      typeof result.result === "string" ? result.result : undefined
+    );
 
     push(encodeEvent({ type: "report", markdown: reportMd }));
     logger.info("hunt live run finished", { status: result.status });
@@ -315,7 +345,8 @@ async function runLiveAgent(
     logger.error("hunt live run error", { message: msg });
     push(encodeEvent({ type: "error", message: msg }));
   } finally {
-    if (agent) {
+    if (heartbeat) clearInterval(heartbeat);
+    if (agent && !handoffIssued) {
       await agent[Symbol.asyncDispose]();
     }
     safeClose(controller);
