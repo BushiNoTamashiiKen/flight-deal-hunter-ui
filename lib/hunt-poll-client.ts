@@ -15,6 +15,9 @@ export async function pollHuntUntilDone(args: {
 }): Promise<"finished" | "error" | "cancelled" | "timeout"> {
   const deadline = Date.now() + MAX_POLL_MS;
   let logCursor = args.logCursor;
+  /** Netlify functions can 5xx transiently (cold starts) — only give up after a streak. */
+  const MAX_CONSECUTIVE_FAILURES = 4;
+  let consecutiveFailures = 0;
 
   while (Date.now() < deadline) {
     if (args.signal?.aborted) return "timeout";
@@ -43,6 +46,11 @@ export async function pollHuntUntilDone(args: {
     }
 
     if (!res.ok) {
+      consecutiveFailures += 1;
+      if (consecutiveFailures < MAX_CONSECUTIVE_FAILURES) {
+        await sleep(POLL_INTERVAL_MS * 2);
+        continue;
+      }
       let msg = `Poll failed (${res.status}).`;
       try {
         const payload = (await res.json()) as { error?: string };
@@ -53,6 +61,7 @@ export async function pollHuntUntilDone(args: {
       args.onEvents([{ type: "error", message: msg }]);
       return "error";
     }
+    consecutiveFailures = 0;
 
     let body: HuntPollResponse;
     try {
@@ -63,12 +72,7 @@ export async function pollHuntUntilDone(args: {
     }
 
     if (body.events.length > 0) {
-      const ordered = [...body.events].sort((a, b) => {
-        if (a.type === "report") return -1;
-        if (b.type === "report") return 1;
-        return 0;
-      });
-      args.onEvents(ordered);
+      args.onEvents(body.events);
     }
     logCursor = body.logCursor;
 

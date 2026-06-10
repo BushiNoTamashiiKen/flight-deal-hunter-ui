@@ -30,6 +30,15 @@ function emptyStepPhase(): Record<number, StepPhase> {
   ) as Record<number, StepPhase>;
 }
 
+function allStepsDone(): Record<number, StepPhase> {
+  return Object.fromEntries(
+    WORKFLOW_STEPS.map((s) => [s.id, "done" as StepPhase])
+  ) as Record<number, StepPhase>;
+}
+
+/** Keep the run-view log list bounded so long hunts don't degrade rendering. */
+const MAX_LOG_LINES = 500;
+
 export function SkyflintApp() {
   const [tab, setTab] = React.useState<"intake" | "run" | "report">("intake");
   const [lastIntake, setLastIntake] = React.useState<IntakeValues>(defaultIntakeValues);
@@ -77,42 +86,69 @@ export function SkyflintApp() {
     let gotHandoff = false;
     const seenLogLines = new Set<string>();
 
-    const applyEvents = (events: HuntStreamEvent[]) => {
-      const ordered = [...events].sort((a, b) => {
-        if (a.type === "report") return -1;
-        if (b.type === "report") return 1;
-        return 0;
+    const appendLogs = (lines: string[]) => {
+      if (lines.length === 0) return;
+      setLogs((prev) => {
+        const next = [...prev, ...lines];
+        return next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next;
       });
-      for (const evt of ordered) {
-        if (evt.type === "log") {
-          if (seenLogLines.has(evt.text)) continue;
-          seenLogLines.add(evt.text);
-          setLogs((prev) => [...prev, evt.text]);
+    };
+
+    /** Batches state updates: one setLogs/setStepPhase per event batch, report first. */
+    const applyEvents = (events: HuntStreamEvent[]) => {
+      let report: string | null = null;
+      const newLogs: string[] = [];
+      const stepChanges: Array<{ step: number; phase: StepPhase }> = [];
+      let lastHeartbeat: { elapsedSec: number; phase: "streaming" | "waiting" | "polling" } | null =
+        null;
+      const errors: string[] = [];
+
+      for (const evt of events) {
+        if (evt.type === "report") {
+          report = evt.markdown;
+        } else if (evt.type === "log") {
+          if (!seenLogLines.has(evt.text)) {
+            seenLogLines.add(evt.text);
+            newLogs.push(evt.text);
+          }
         } else if (evt.type === "step") {
-          setStepPhase((prev) => {
-            const next = { ...prev };
-            if (evt.status === "running") {
-              next[evt.step] = "running";
-            } else if (evt.status === "done") {
-              next[evt.step] = "done";
-            }
-            return next;
+          stepChanges.push({
+            step: evt.step,
+            phase: evt.status === "running" ? "running" : "done",
           });
         } else if (evt.type === "heartbeat") {
-          setHuntElapsedSec(evt.elapsedSec);
-          setHuntHeartbeatPhase(evt.phase);
+          lastHeartbeat = { elapsedSec: evt.elapsedSec, phase: evt.phase };
         } else if (evt.type === "handoff") {
           gotHandoff = true;
-          setHuntHeartbeatPhase("polling");
-          setHuntElapsedSec(evt.elapsedSec);
-        } else if (evt.type === "report") {
-          gotReport = true;
-          setReportMd(evt.markdown);
-          setTab("report");
-          toast.success("Ranked report ready.");
+          lastHeartbeat = { elapsedSec: evt.elapsedSec, phase: "polling" };
         } else if (evt.type === "error") {
-          toast.error(evt.message);
+          errors.push(evt.message);
         }
+      }
+
+      if (report !== null) {
+        gotReport = true;
+        setReportMd(report);
+        setStepPhase(allStepsDone());
+        setTab("report");
+        toast.success("Ranked report ready.");
+      } else if (stepChanges.length > 0) {
+        setStepPhase((prev) => {
+          const next = { ...prev };
+          for (const c of stepChanges) next[c.step] = c.phase;
+          return next;
+        });
+      }
+
+      appendLogs(newLogs);
+
+      if (lastHeartbeat) {
+        setHuntElapsedSec(lastHeartbeat.elapsedSec);
+        setHuntHeartbeatPhase(lastHeartbeat.phase);
+      }
+
+      for (const msg of errors) {
+        toast.error(msg);
       }
     };
 
@@ -169,6 +205,7 @@ export function SkyflintApp() {
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
 
+          const batch: HuntStreamEvent[] = [];
           for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) continue;
@@ -176,18 +213,16 @@ export function SkyflintApp() {
             try {
               evt = JSON.parse(trimmed) as HuntStreamEvent;
             } catch {
-              if (!seenLogLines.has(trimmed)) {
-                seenLogLines.add(trimmed);
-                setLogs((prev) => [...prev, trimmed]);
-              }
+              batch.push({ type: "log", text: trimmed });
               continue;
             }
 
             if (evt.type === "handoff") {
               handoffMeta = evt;
             }
-            applyEvents([evt]);
+            batch.push(evt);
           }
+          if (batch.length > 0) applyEvents(batch);
 
           if (done) break;
         }

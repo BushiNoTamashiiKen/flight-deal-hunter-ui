@@ -37,6 +37,8 @@ const HEARTBEAT_MS = 8_000;
 
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 
+const encoder = new TextEncoder();
+
 function jsonResponse(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: NO_STORE });
 }
@@ -47,6 +49,24 @@ function safeClose(controller: ReadableStreamDefaultController<Uint8Array>): voi
   } catch {
     // already closed
   }
+}
+
+/**
+ * Push that survives client disconnects: heartbeat timers and onDelta callbacks
+ * fire async and would otherwise throw on a closed controller.
+ */
+function makeSafePush(
+  controller: ReadableStreamDefaultController<Uint8Array>
+): (line: string) => void {
+  let closed = false;
+  return (line: string) => {
+    if (closed) return;
+    try {
+      controller.enqueue(encoder.encode(line));
+    } catch {
+      closed = true;
+    }
+  };
 }
 
 function clientIp(request: Request): string {
@@ -125,7 +145,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const push = (line: string) => controller.enqueue(new TextEncoder().encode(line));
+      const push = makeSafePush(controller);
 
       try {
         const keyForStream = trimmedCursorApiKey();
@@ -168,7 +188,7 @@ async function runLiveAgent(
   intake: IntakeValues,
   apiKey: string
 ): Promise<void> {
-  const push = (line: string) => controller.enqueue(new TextEncoder().encode(line));
+  const push = makeSafePush(controller);
   const startedAt = Date.now();
   const useAsync = shouldUseAsyncHunt();
   const handoffAt = useAsync ? startedAt + STREAM_HANDOFF_MS : Number.POSITIVE_INFINITY;
@@ -251,39 +271,7 @@ async function runLiveAgent(
       return;
     }
 
-    if (run.supports("stream")) {
-      for await (const event of run.stream()) {
-        pushSdkMessage(push, event, flushMarkers, onAssistantText);
-        if (Date.now() >= handoffAt) {
-          handoffIssued = true;
-          const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
-          push(
-            encodeEvent({
-              type: "log",
-              text: "[status] Handing off to background polling — agent keeps running on Cursor Cloud…",
-            })
-          );
-          push(
-            encodeEvent({
-              type: "handoff",
-              agentId: agent.agentId,
-              runId: run.id,
-              logCursor: 0,
-              elapsedSec,
-              startedAt,
-            })
-          );
-          logger.info("hunt async handoff", {
-            agentId: agent.agentId.slice(0, 12),
-            runId: run.id.slice(0, 12),
-            elapsedSec,
-          });
-          return;
-        }
-      }
-    }
-
-    if (useAsync && !handoffIssued) {
+    const emitHandoff = (reason: string) => {
       handoffIssued = true;
       const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
       push(
@@ -295,19 +283,59 @@ async function runLiveAgent(
       push(
         encodeEvent({
           type: "handoff",
-          agentId: agent.agentId,
+          agentId: agent!.agentId,
           runId: run.id,
           logCursor: 0,
           elapsedSec,
           startedAt,
         })
       );
-      logger.info("hunt async handoff after stream", {
-        agentId: agent.agentId.slice(0, 12),
+      logger.info("hunt async handoff", {
+        reason,
+        agentId: agent!.agentId.slice(0, 12),
         runId: run.id.slice(0, 12),
         elapsedSec,
       });
-      return;
+    };
+
+    const HANDOFF = Symbol("handoff");
+    let handoffTimerId: ReturnType<typeof setTimeout> | undefined;
+    /** Fires at the handoff deadline even when the stream is quiet (long web fetches). */
+    const handoffDeadline = useAsync
+      ? new Promise<typeof HANDOFF>((resolve) => {
+          handoffTimerId = setTimeout(
+            () => resolve(HANDOFF),
+            Math.max(0, handoffAt - Date.now())
+          );
+        })
+      : null;
+
+    try {
+      if (run.supports("stream")) {
+        const iterator = run.stream()[Symbol.asyncIterator]();
+        while (true) {
+          const next = handoffDeadline
+            ? await Promise.race([iterator.next(), handoffDeadline])
+            : await iterator.next();
+          if (next === HANDOFF) {
+            emitHandoff("deadline during quiet stream");
+            return;
+          }
+          if (next.done) break;
+          pushSdkMessage(push, next.value, flushMarkers, onAssistantText);
+          if (Date.now() >= handoffAt) {
+            emitHandoff("deadline after event");
+            return;
+          }
+        }
+      }
+
+      if (useAsync && !handoffIssued) {
+        emitHandoff("stream ended before deadline");
+        return;
+      }
+    } finally {
+      if (handoffTimerId) clearTimeout(handoffTimerId);
     }
 
     heartbeatPhase = "waiting";
