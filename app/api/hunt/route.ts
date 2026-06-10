@@ -29,6 +29,8 @@ import type { IntakeValues } from "@/lib/intake-schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** SDK calls the Cursor API via global fetch — keep Next's Data Cache out of the loop. */
+export const fetchCache = "force-no-store";
 /** Honored on Vercel / long-timeout hosts; Netlify clamps via netlify.toml + plan. */
 export const maxDuration = 300;
 

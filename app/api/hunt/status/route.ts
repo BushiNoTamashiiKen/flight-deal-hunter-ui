@@ -11,6 +11,8 @@ import type { Run } from "@cursor/sdk";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** The SDK polls the Cursor API via global fetch — Next's Data Cache must not freeze run status. */
+export const fetchCache = "force-no-store";
 export const maxDuration = 26;
 
 const NO_STORE = { "Cache-Control": "no-store" } as const;
