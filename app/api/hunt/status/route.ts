@@ -136,6 +136,20 @@ export async function GET(request: Request): Promise<Response> {
         logCursor,
         elapsedSec,
       };
+      if (url.searchParams.get("debug") === "1") {
+        return jsonResponse(
+          {
+            ...body,
+            debug: {
+              sdkStatus: run.status,
+              resultType: typeof run.result,
+              resultLen: typeof run.result === "string" ? run.result.length : -1,
+              createdAt: run.createdAt ?? null,
+            },
+          },
+          200
+        );
+      }
       return jsonResponse(body, 200);
     }
 
