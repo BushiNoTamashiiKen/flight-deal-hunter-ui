@@ -5,7 +5,8 @@ export const STREAM_HANDOFF_MS = 20_000;
 
 export const POLL_INTERVAL_MS = 4_000;
 
-export const MAX_POLL_MS = 15 * 60 * 1000;
+/** Agent prompt budgets ~12–15 min; allow margin before the client stops polling. */
+export const MAX_POLL_MS = 30 * 60 * 1000;
 
 /** Live hunts on managed hosts use start-stream → poll instead of one long stream. */
 export function shouldUseAsyncHunt(): boolean {

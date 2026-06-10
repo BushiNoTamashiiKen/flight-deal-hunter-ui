@@ -13,8 +13,12 @@ export async function pollHuntUntilDone(args: {
   onEvents: (events: HuntStreamEvent[]) => void;
   signal?: AbortSignal;
 }): Promise<"finished" | "error" | "cancelled" | "timeout"> {
-  const deadline = Date.now() + MAX_POLL_MS;
+  const startedPolling = Date.now();
+  const deadline = startedPolling + MAX_POLL_MS;
   let logCursor = args.logCursor;
+  /** Poll fast early (reports can land quickly), back off on long runs. */
+  const pollInterval = () =>
+    Date.now() - startedPolling < 3 * 60 * 1000 ? POLL_INTERVAL_MS : POLL_INTERVAL_MS * 3;
   /** Netlify functions can 5xx transiently (cold starts) — only give up after a streak. */
   const MAX_CONSECUTIVE_FAILURES = 4;
   let consecutiveFailures = 0;
@@ -36,19 +40,19 @@ export async function pollHuntUntilDone(args: {
         signal: args.signal,
       });
     } catch {
-      await sleep(POLL_INTERVAL_MS);
+      await sleep(pollInterval());
       continue;
     }
 
     if (res.status === 429) {
-      await sleep(POLL_INTERVAL_MS * 2);
+      await sleep(pollInterval() * 2);
       continue;
     }
 
     if (!res.ok) {
       consecutiveFailures += 1;
       if (consecutiveFailures < MAX_CONSECUTIVE_FAILURES) {
-        await sleep(POLL_INTERVAL_MS * 2);
+        await sleep(pollInterval() * 2);
         continue;
       }
       let msg = `Poll failed (${res.status}).`;
@@ -67,7 +71,7 @@ export async function pollHuntUntilDone(args: {
     try {
       body = (await res.json()) as HuntPollResponse;
     } catch {
-      await sleep(POLL_INTERVAL_MS);
+      await sleep(pollInterval());
       continue;
     }
 
@@ -80,13 +84,13 @@ export async function pollHuntUntilDone(args: {
     if (body.status === "error") return "error";
     if (body.status === "cancelled") return "cancelled";
 
-    await sleep(POLL_INTERVAL_MS);
+    await sleep(pollInterval());
   }
 
   args.onEvents([
     {
       type: "error",
-      message: "Hunt timed out after 15 minutes. Retry with narrower dates or fewer destinations.",
+      message: "Hunt timed out after 30 minutes. Retry with narrower dates or fewer destinations.",
     },
   ]);
   return "timeout";

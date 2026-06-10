@@ -33,6 +33,7 @@ ${serialized}
 6. **Breadth loop (required):** after baseline, keep expanding coverage until you hit diminishing returns: nearby-airport matrix, date-grid expansion, regional OTAs, and carrier-direct checks for each region touched by candidate routings. Stop only when one of these is true: (a) no option beats winner by ≥2% after normalization, or (b) environment/time limits block further checks — then list blocked checks as **UNCHECKABLE + link**.
 7. **LCC and self-transfer:** quote **carrier-direct** fees where aggregators flake; separate tickets need **explicit misconnect caveat** and buffer guidance.
 8. **Currency:** report in **${intake.currency}**; note POS quirks when comparing.
+9. **Time budget (hard): emit the final ranked report within ~12 minutes of run start.** Verified-but-narrower beats exhaustive-but-late. Budget roughly: Steps 1–2 ≤3 min, Steps 3–6 ≤6 min, Steps 7–8 ≤3 min. When the budget nears, stop expanding (rule 6 clause b applies), mark remaining checks **UNCHECKABLE + deep-link**, and proceed straight to Step 7.5 and the report. Never let the run exceed 15 minutes without emitting \`[[SKYFLINT_REPORT_BEGIN]]\`.
 
 ## Machine-readable progress markers (required)
 After you fully complete checklist step **N** (1–8), output exactly one line:
